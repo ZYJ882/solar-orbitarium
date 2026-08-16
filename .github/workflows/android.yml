@@ -113,7 +113,7 @@ jobs:
           test -n "$SDK_ROOT" || { echo "Android SDK path is not configured"; exit 1; }
           APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -n "$APKSIGNER" || { echo "apksigner was not found"; exit 1; }
-          FINGERPRINT="$("$APKSIGNER" verify --print-certs "$APK" | awk -F': ' '/certificate SHA-256 digest:/{print $2; exit}')"
+          FINGERPRINT="$("$APKSIGNER" verify --print-certs "$APK" | awk '/certificate SHA-256 digest:/{sub(/^.*certificate SHA-256 digest: /, ""); print; exit}')"
           test -n "$FINGERPRINT" || { echo "APK signature certificate not found"; exit 1; }
           echo "Certificate SHA-256: $FINGERPRINT"
           test "$FINGERPRINT" = "$EXPECTED_CERT_SHA256" || { echo "Unexpected signing certificate"; exit 1; }

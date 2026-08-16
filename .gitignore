@@ -1,5 +1,31 @@
+# dependencies
 node_modules/
+
+# web build output
 dist/
+dist-ssr/
+
+# Capacitor / Android generated projects
+android/
+ios/
+.gradle/
+build/
+local.properties
+
+# signing material and packaged binaries
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# archives and local workspace exports
+*.tar
+*.tar.gz
+*.tgz
+
+# local files
 .DS_Store
+*.local
 .env
-.env.local
+.env.*
+*.log

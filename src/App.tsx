@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import SolarCanvas from "./components/SolarCanvas";
+import SolarCanvas3D from "./components/SolarCanvas3D";
 import InfoPanel from "./components/InfoPanel";
 import ControlBar from "./components/ControlBar";
 import PlanetNav from "./components/PlanetNav";
@@ -29,6 +30,7 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [simDays, setSimDays] = useState(0);
   const [resetToken, setResetToken] = useState(0);
+  const [viewMode, setViewMode] = useState<"2d" | "3d">("2d");
   const [installEvt, setInstallEvt] = useState<BeforeInstallPromptEvent | null>(null);
 
   /* 捕获浏览器的 PWA 安装提示（安卓 Chrome 会触发） */
@@ -77,16 +79,29 @@ export default function App() {
     <div className="min-h-screen bg-[#05080f] text-[#e7eef8]">
       {/* ============ 观测台主舞台 ============ */}
       <section className="relative h-[100svh] min-h-[560px] overflow-hidden">
-        <SolarCanvas
-          playing={playing}
-          speed={speed}
-          showOrbits={showOrbits}
-          showLabels={showLabels}
-          selectedId={selectedId}
-          onSelect={handleSelect}
-          onTick={handleTick}
-          resetToken={resetToken}
-        />
+        {viewMode === "3d" ? (
+          <SolarCanvas3D
+            playing={playing}
+            speed={speed}
+            showOrbits={showOrbits}
+            showLabels={showLabels}
+            selectedId={selectedId}
+            onSelect={handleSelect}
+            onTick={handleTick}
+            resetToken={resetToken}
+          />
+        ) : (
+          <SolarCanvas
+            playing={playing}
+            speed={speed}
+            showOrbits={showOrbits}
+            showLabels={showLabels}
+            selectedId={selectedId}
+            onSelect={handleSelect}
+            onTick={handleTick}
+            resetToken={resetToken}
+          />
+        )}
 
         {/* HUD 顶栏 */}
         <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between px-4 py-4 sm:px-7">
@@ -135,6 +150,28 @@ export default function App() {
                 安装 App
               </button>
             )}
+            {/* 2D/3D 切换按钮 */}
+            <button
+              onClick={() => setViewMode(viewMode === "2d" ? "3d" : "2d")}
+              className="panel-card flex items-center gap-2 rounded-full px-3 py-2 text-xs font-bold tracking-wider transition-all duration-300 hover:bg-[#f5b942]/10 hover:shadow-[0_0_18px_rgba(245,185,66,0.3)] active:scale-95"
+              style={{ borderColor: "rgba(245,185,66,0.5)" }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                {viewMode === "2d" ? (
+                  <>
+                    <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c4.97 0 9-4.03 9-9s-4.03-9-9-9z"/>
+                    <path d="M12 7v5l3 3"/>
+                  </>
+                ) : (
+                  <>
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    <path d="M3.27 6.96L12 12.01l8.73-5.05"/>
+                    <path d="M12 22.08V12"/>
+                  </>
+                )}
+              </svg>
+              {viewMode === "2d" ? "3D 视图" : "2D 视图"}
+            </button>
             <div className="panel-card flex items-center gap-2.5 rounded-full px-4 py-2">
               <span
                 className={`h-2 w-2 rounded-full ${

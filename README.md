@@ -7,6 +7,7 @@
 | 模块 | 说明 |
 | --- | --- |
 | 轨道模拟 | 太阳与八大行星按公转周期比例运行，支持播放、暂停和 0.1×–200× 速度调节。 |
+| 观察视图 | 默认 2D 俯视图；可切换到支持拖拽旋转和滚轮缩放的 3D 视图。 |
 | 天体档案 | 展示直径、距日距离、公转周期、自转周期、卫星数、温度和科普资料。 |
 | 交互导航 | 支持左侧快速选择、键盘空格键播放/暂停，以及轨道线和名称标签开关。 |
 | 数据对比 | 以压缩后的平方根比例展示行星直径和距日距离，并提供趣味数据卡片。 |
@@ -36,21 +37,26 @@ npm run preview     # 预览已构建的 dist/
 src/
 ├── App.tsx                 # 页面状态与整体布局
 ├── components/
-│   ├── SolarCanvas.tsx     # 轨道动画与画布渲染
+│   ├── SolarCanvas.tsx     # 2D 轨道动画与画布渲染
+│   ├── SolarCanvas3D.tsx   # Three.js 3D 轨道视图
 │   ├── ControlBar.tsx      # 播放控制与速度调节
 │   ├── PlanetNav.tsx       # 天体快速导航
 │   ├── InfoPanel.tsx       # 当前天体档案
-│   └── DataComparison.tsx   # 行星数据对比
+│   └── DataComparison.tsx  # 行星数据对比
 ├── data/planets.ts         # 天体数据、格式化工具和查询函数
-├── hooks/useReveal.ts       # 滚动显现动画 Hook
+├── hooks/useReveal.ts      # 滚动显现动画 Hook
 └── index.css               # 全局样式与视觉主题
 public/
-├── manifest.webmanifest     # PWA 清单
-├── sw.js                    # 离线缓存 Service Worker
-└── icons/icon.svg           # 应用图标
-capacitor.config.ts          # Capacitor Android 配置
-.github/workflows/android.yml# GitHub Actions Android 发布流程
+├── manifest.webmanifest    # PWA 清单
+├── sw.js                   # 离线缓存 Service Worker
+└── icons/icon.svg          # 应用图标
+capacitor.config.ts         # Capacitor Android 配置
+.github/workflows/android.yml # GitHub Actions Android 发布流程
 ```
+
+## 2D 与 3D 视图
+
+2D 视图适合快速比较轨道关系，3D 视图适合从不同角度观察空间层次。3D 视图使用 Three.js，生产构建后的 JavaScript 体积会明显增加；在低端移动设备上如遇到 WebGL 性能问题，可继续使用 2D 视图。
 
 ## PWA 使用
 

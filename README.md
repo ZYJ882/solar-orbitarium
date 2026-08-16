@@ -71,7 +71,26 @@ git push origin v1.0.0     # 触发发布流水线
 下载 APK：仓库页 → **Releases** → 选择版本 → Assets → `solar-orbitarium-v1.0.0.apk`，
 传到手机直接安装（首次安装需允许"未知来源应用"）。
 
-### 发布到 GitHub 的步骤
+### 发布到 GitHub：三种方式任选
+
+**方式 A：一键脚本（推荐，约 1 分钟）**
+
+先安装 [GitHub CLI](https://cli.github.com)（`brew install gh` / `winget install GitHub.cli` / `sudo apt install gh`），然后在项目根目录运行：
+
+- macOS / Linux：`bash publish.sh`
+- Windows：双击 `publish.bat`（或在 cmd 中运行）
+
+脚本会自动完成：**浏览器授权登录 → 创建公开仓库 → 提交并推送代码 → 询问是否打 `v1.0.0` 标签**。确认打标签后，Actions 立即开始云端编译 APK，5-8 分钟后出现在 Releases 页面。
+
+**方式 B：纯浏览器，不装任何工具**
+
+1. 把项目文件夹整体压缩为 zip
+2. github.com → **New repository** → 命名 `solar-orbitarium` → **Create**
+3. 点 **uploading an existing file**，解压 zip 后将**全部文件**（含隐藏的 `.github` 文件夹）拖入 → Commit
+4. 进入 **Releases → Draft a new release**，tag 填 `v1.0.0` → **Publish release**
+5. Actions 自动编译，APK 几分钟后挂到 Releases 页面
+
+**方式 C：手动 git 命令**
 
 ```bash
 git init
@@ -86,8 +105,8 @@ git tag v1.0.0
 git push origin v1.0.0       # ② 发布 1.0.0，APK 自动挂到 Releases 页面
 ```
 
-（先在 GitHub 网页点 **New repository** 创建名为 `solar-orbitarium` 的空仓库，不要勾选自动生成 README。
-发布前记得把 `capacitor.config.ts` 里的 `appId` 改成你的反向域名。）
+（方式 C 需先在 GitHub 网页创建同名空仓库，不勾选自动生成 README。
+正式发布前建议把 `capacitor.config.ts` 里的 `appId` 改成你的反向域名。）
 
 若要同时托管网页版：仓库 Settings → Pages → 选择 GitHub Actions 或将 `dist/` 部署到 Vercel/Netlify 即可。
 

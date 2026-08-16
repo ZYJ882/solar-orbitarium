@@ -55,12 +55,21 @@ mkdir assets
 npx @capacitor/assets generate --android
 ```
 
-## ☁️ 方式三：推送到 GitHub，自动构建 APK
+## ☁️ 方式三：推送到 GitHub，APK 全自动产出（推荐）
 
-仓库已内置工作流 `.github/workflows/android.yml`。推送代码后，GitHub Actions 会自动执行：
-`npm build → cap add android → gradle assembleDebug → 上传 APK 构件`。
+仓库已内置流水线 `.github/workflows/android.yml`，无需本地安装 Android SDK：
 
-下载方式：仓库页面 → **Actions** → 选择运行记录 → 底部 **Artifacts** → 下载 `solar-orbitarium-debug-apk.zip`。
+- **每次 push 到 main**：自动编译 debug APK，上传为 Actions 构件
+  （仓库页 → Actions → 运行记录 → Artifacts 下载，保留 90 天）
+- **推送版本标签**：自动创建 **GitHub Release**，APK 作为附件永久挂在 Release 页面
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0     # 触发发布流水线
+```
+
+下载 APK：仓库页 → **Releases** → 选择版本 → Assets → `solar-orbitarium-v1.0.0.apk`，
+传到手机直接安装（首次安装需允许"未知来源应用"）。
 
 ### 发布到 GitHub 的步骤
 
@@ -71,10 +80,14 @@ git commit -m "feat: 太阳系观测站 · 交互式轨道演示"
 
 git branch -M main
 git remote add origin https://github.com/你的用户名/solar-orbitarium.git
-git push -u origin main
+git push -u origin main      # ① 推送代码，Actions 开始自动构建
+
+git tag v1.0.0
+git push origin v1.0.0       # ② 发布 1.0.0，APK 自动挂到 Releases 页面
 ```
 
-（先在 GitHub 网页点 **New repository** 创建名为 `solar-orbitarium` 的空仓库，不要勾选自动生成 README。）
+（先在 GitHub 网页点 **New repository** 创建名为 `solar-orbitarium` 的空仓库，不要勾选自动生成 README。
+发布前记得把 `capacitor.config.ts` 里的 `appId` 改成你的反向域名。）
 
 若要同时托管网页版：仓库 Settings → Pages → 选择 GitHub Actions 或将 `dist/` 部署到 Vercel/Netlify 即可。
 

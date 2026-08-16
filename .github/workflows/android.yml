@@ -112,7 +112,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${VERSION_NAME}
-          name: "${VERSION_NAME}"
+          name: "太阳系模拟器 v1.0.${{ github.run_number }}"
           body: |
             🎉 **版本号：${VERSION_NAME}**
             

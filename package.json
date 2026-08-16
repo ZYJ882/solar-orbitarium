@@ -6,9 +6,6 @@
   "engines": {
     "node": ">=20"
   },
-  "overrides": {
-    "tar": "^7.5.22"
-  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",

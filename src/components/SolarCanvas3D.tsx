@@ -1,5 +1,31 @@
 import { useEffect, useRef, useCallback } from "react";
-import * as THREE from "three";
+import {
+  AdditiveBlending,
+  AmbientLight,
+  BackSide,
+  BufferAttribute,
+  BufferGeometry,
+  Camera,
+  Color,
+  DoubleSide,
+  Line,
+  LineBasicMaterial,
+  Mesh,
+  MeshBasicMaterial,
+  MeshStandardMaterial,
+  PerspectiveCamera,
+  PointLight,
+  Points,
+  PointsMaterial,
+  Raycaster,
+  RingGeometry,
+  Scene,
+  ShaderMaterial,
+  SphereGeometry,
+  Vector2,
+  Vector3,
+  WebGLRenderer,
+} from "three";
 import { BODIES, PLANETS, SUN } from "../data/planets";
 
 interface Props {
@@ -48,15 +74,15 @@ export default function SolarCanvas3D({
 
   const simRef = useRef({
     days: 0,
-    scene: null as THREE.Scene | null,
-    camera: null as THREE.PerspectiveCamera | null,
-    renderer: null as THREE.WebGLRenderer | null,
-    sunMesh: null as THREE.Mesh | null,
-    planetMeshes: new Map<string, THREE.Mesh>(),
-    orbitLines: new Map<string, THREE.Line>(),
+    scene: null as Scene | null,
+    camera: null as PerspectiveCamera | null,
+    renderer: null as WebGLRenderer | null,
+    sunMesh: null as Mesh | null,
+    planetMeshes: new Map<string, Mesh>(),
+    orbitLines: new Map<string, Line>(),
     labels: new Map<string, HTMLDivElement>(),
-    raycaster: new THREE.Raycaster(),
-    mouse: new THREE.Vector2(),
+    raycaster: new Raycaster(),
+    mouse: new Vector2(),
     isDragging: false,
     lastMouseX: 0,
     lastMouseY: 0,
@@ -77,11 +103,11 @@ export default function SolarCanvas3D({
     if (!container) return;
 
     // 创建场景
-    const scene = new THREE.Scene();
+    const scene = new Scene();
     simRef.current.scene = scene;
 
     // 创建相机
-    const camera = new THREE.PerspectiveCamera(
+    const camera = new PerspectiveCamera(
       60,
       container.clientWidth / container.clientHeight,
       0.1,
@@ -91,9 +117,12 @@ export default function SolarCanvas3D({
     simRef.current.camera = camera;
 
     // 创建渲染器
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    const isLowPowerDevice =
+      window.matchMedia("(pointer: coarse)").matches ||
+      (navigator.hardwareConcurrency ?? 8) <= 4;
+    const renderer = new WebGLRenderer({ antialias: !isLowPowerDevice, alpha: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isLowPowerDevice ? 1.25 : 1.5));
     container.appendChild(renderer.domElement);
     simRef.current.renderer = renderer;
 
@@ -101,18 +130,20 @@ export default function SolarCanvas3D({
     createStarfield(scene);
 
     // 创建太阳
-    const sunGeometry = new THREE.SphereGeometry(20, 32, 32);
-    const sunMaterial = new THREE.MeshBasicMaterial({ 
+    const sunSegments = isLowPowerDevice ? 16 : 24;
+    const planetSegments = isLowPowerDevice ? 12 : 20;
+    const sunGeometry = new SphereGeometry(20, sunSegments, sunSegments);
+    const sunMaterial = new MeshBasicMaterial({
       color: 0xffaa00,
     });
-    const sunMesh = new THREE.Mesh(sunGeometry, sunMaterial);
+    const sunMesh = new Mesh(sunGeometry, sunMaterial);
     
     // 添加太阳光晕效果
-    const glowMaterial = new THREE.ShaderMaterial({
+    const glowMaterial = new ShaderMaterial({
       uniforms: {
         c: { value: 0.5 },
         p: { value: 3.5 },
-        glowColor: { value: new THREE.Color(0xffaa00) },
+        glowColor: { value: new Color(0xffaa00) },
         viewVector: { value: camera.position },
       },
       vertexShader: `
@@ -133,13 +164,13 @@ export default function SolarCanvas3D({
           gl_FragColor = vec4(glow, 1.0);
         }
       `,
-      side: THREE.BackSide,
-      blending: THREE.AdditiveBlending,
+      side: BackSide,
+      blending: AdditiveBlending,
       transparent: true,
     });
     
-    const glowMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(28, 32, 32),
+    const glowMesh = new Mesh(
+      new SphereGeometry(28, sunSegments, sunSegments),
       glowMaterial
     );
     sunMesh.add(glowMesh);
@@ -148,50 +179,50 @@ export default function SolarCanvas3D({
     simRef.current.sunMesh = sunMesh;
 
     // 添加点光源（太阳发光）
-    const sunLight = new THREE.PointLight(0xffffff, 2, 500);
+    const sunLight = new PointLight(0xffffff, 2, 500);
     sunLight.position.set(0, 0, 0);
     scene.add(sunLight);
 
     // 添加环境光
-    const ambientLight = new THREE.AmbientLight(0x333333);
+    const ambientLight = new AmbientLight(0x333333);
     scene.add(ambientLight);
 
     // 创建行星
     PLANETS.forEach((pl, index) => {
       const radius = displayRadius(pl.diameterKm) * 0.5;
-      const geometry = new THREE.SphereGeometry(radius, 32, 32);
+      const geometry = new SphereGeometry(radius, planetSegments, planetSegments);
       
       // 创建材质
-      const material = new THREE.MeshStandardMaterial({
+      const material = new MeshStandardMaterial({
         color: pl.color,
         roughness: 0.7,
         metalness: 0.1,
       });
       
-      const mesh = new THREE.Mesh(geometry, material);
+      const mesh = new Mesh(geometry, material);
       mesh.userData.radius = radius;
       scene.add(mesh);
       simRef.current.planetMeshes.set(pl.id, mesh);
 
       // 为土星添加环
       if (pl.id === "saturn") {
-        const ringGeometry = new THREE.RingGeometry(radius * 1.4, radius * 2.2, 64);
-        const ringMaterial = new THREE.MeshBasicMaterial({
+        const ringGeometry = new RingGeometry(radius * 1.4, radius * 2.2, 64);
+        const ringMaterial = new MeshBasicMaterial({
           color: 0xe6c98a,
-          side: THREE.DoubleSide,
+          side: DoubleSide,
           transparent: true,
           opacity: 0.7,
         });
-        const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+        const ring = new Mesh(ringGeometry, ringMaterial);
         ring.rotation.x = Math.PI / 2.5;
         mesh.add(ring);
       }
 
       // 为地球添加月球
       if (pl.id === "earth") {
-        const moonGeometry = new THREE.SphereGeometry(radius * 0.27, 16, 16);
-        const moonMaterial = new THREE.MeshStandardMaterial({ color: 0xc9ccd4 });
-        const moon = new THREE.Mesh(moonGeometry, moonMaterial);
+        const moonGeometry = new SphereGeometry(radius * 0.27, 12, 12);
+        const moonMaterial = new MeshStandardMaterial({ color: 0xc9ccd4 });
+        const moon = new Mesh(moonGeometry, moonMaterial);
         moon.userData.isMoon = true;
         mesh.add(moon);
       }
@@ -200,21 +231,22 @@ export default function SolarCanvas3D({
       if (showOrbits) {
         const orbitRadius = orbitT(pl.au) * 100;
         const points = [];
-        for (let i = 0; i <= 64; i++) {
-          const angle = (i / 64) * TAU;
-          points.push(new THREE.Vector3(
+        const orbitSegments = isLowPowerDevice ? 40 : 56;
+        for (let i = 0; i <= orbitSegments; i++) {
+          const angle = (i / orbitSegments) * TAU;
+          points.push(new Vector3(
             Math.cos(angle) * orbitRadius,
             0,
             Math.sin(angle) * orbitRadius
           ));
         }
-        const orbitGeometry = new THREE.BufferGeometry().setFromPoints(points);
-        const orbitMaterial = new THREE.LineBasicMaterial({
+        const orbitGeometry = new BufferGeometry().setFromPoints(points);
+        const orbitMaterial = new LineBasicMaterial({
           color: 0x94aac8,
           transparent: true,
           opacity: 0.3,
         });
-        const orbit = new THREE.Line(orbitGeometry, orbitMaterial);
+        const orbit = new Line(orbitGeometry, orbitMaterial);
         orbit.rotation.x = Math.PI / 2;
         scene.add(orbit);
         simRef.current.orbitLines.set(pl.id, orbit);
@@ -281,7 +313,7 @@ export default function SolarCanvas3D({
       
       simRef.current.raycaster.setFromCamera(simRef.current.mouse, camera);
       
-      const meshes: THREE.Mesh[] = [sunMesh!, ...Array.from(simRef.current.planetMeshes.values())];
+      const meshes: Mesh[] = [sunMesh!, ...Array.from(simRef.current.planetMeshes.values())];
       const intersects = simRef.current.raycaster.intersectObjects(meshes, true);
       
       if (intersects.length > 0) {
@@ -327,15 +359,28 @@ export default function SolarCanvas3D({
 
     // 动画循环
     let raf = 0;
+    let frameCount = 0;
+    let isPageVisible = document.visibilityState === "visible";
     let lastTime = performance.now();
+    const onVisibilityChange = () => {
+      isPageVisible = document.visibilityState === "visible";
+      lastTime = performance.now();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     const animate = (now: number) => {
       const dt = (now - lastTime) / 1000;
       lastTime = now;
 
+      if (!isPageVisible) {
+        raf = requestAnimationFrame(animate);
+        return;
+      }
+
       const p = propsRef.current;
       const sim = simRef.current;
-      
+      frameCount += 1;
+
       if (p.playing) {
         sim.days += dt * BASE_DAYS_PER_SEC * p.speed;
       }
@@ -381,8 +426,11 @@ export default function SolarCanvas3D({
         sim.sunMesh.scale.set(pulse, pulse, pulse);
       }
 
-      // 更新标签位置
-      updateLabels(camera, renderer.domElement);
+      // 标签位置不需要与画面每一帧同步；低功耗设备进一步降低更新频率。
+      const labelUpdateInterval = isLowPowerDevice ? 3 : 2;
+      if (frameCount % labelUpdateInterval === 0) {
+        updateLabels(camera, renderer.domElement);
+      }
 
       renderer.render(scene, camera);
       raf = requestAnimationFrame(animate);
@@ -397,6 +445,7 @@ export default function SolarCanvas3D({
       container.removeEventListener("mousedown", onMouseDown);
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       container.removeEventListener("wheel", onWheel);
       container.removeEventListener("click", onClick);
       
@@ -405,8 +454,8 @@ export default function SolarCanvas3D({
 
       // 清理 Three.js 资源
       scene.traverse((object) => {
-        if ((object as THREE.Mesh).isMesh) {
-          const mesh = object as THREE.Mesh;
+        if ((object as Mesh).isMesh) {
+          const mesh = object as Mesh;
           if (mesh.geometry) mesh.geometry.dispose();
           if (mesh.material) {
             if (Array.isArray(mesh.material)) {
@@ -434,15 +483,15 @@ export default function SolarCanvas3D({
   }, [showOrbits]);
 
   // 更新标签：仅在需要时创建或删除，动画帧中复用既有 DOM 节点。
-  const updateLabels = useCallback((camera: THREE.Camera, canvas: HTMLCanvasElement) => {
+  const updateLabels = useCallback((camera: Camera, canvas: HTMLCanvasElement) => {
     const sim = simRef.current;
     const p = propsRef.current;
-    const wanted = new Map<string, { text: string; position: THREE.Vector3; selected: boolean }>();
+    const wanted = new Map<string, { text: string; position: Vector3; selected: boolean }>();
 
     if (p.showLabels || p.selectedId === "sun") {
       wanted.set("sun", {
         text: SUN.name,
-        position: new THREE.Vector3(0, -25, 0),
+        position: new Vector3(0, -25, 0),
         selected: p.selectedId === "sun",
       });
     }
@@ -453,7 +502,7 @@ export default function SolarCanvas3D({
       if (!mesh) return;
       wanted.set(pl.id, {
         text: pl.name,
-        position: new THREE.Vector3(
+        position: new Vector3(
           mesh.position.x,
           mesh.position.y - (mesh.userData.radius as number) - 5,
           mesh.position.z,
@@ -495,7 +544,7 @@ export default function SolarCanvas3D({
 
 // 更新相机位置
 function updateCameraPosition(
-  camera: THREE.Camera,
+  camera: Camera,
   angleH: number,
   angleV: number,
   distance: number
@@ -508,9 +557,9 @@ function updateCameraPosition(
 }
 
 // 创建星空背景
-function createStarfield(scene: THREE.Scene) {
-  const starGeometry = new THREE.BufferGeometry();
-  const starCount = 2000;
+function createStarfield(scene: Scene) {
+  const starGeometry = new BufferGeometry();
+  const starCount = window.matchMedia("(pointer: coarse)").matches ? 650 : 1100;
   const positions = new Float32Array(starCount * 3);
   const colors = new Float32Array(starCount * 3);
   
@@ -543,25 +592,25 @@ function createStarfield(scene: THREE.Scene) {
     }
   }
   
-  starGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  starGeometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  starGeometry.setAttribute("position", new BufferAttribute(positions, 3));
+  starGeometry.setAttribute("color", new BufferAttribute(colors, 3));
   
-  const starMaterial = new THREE.PointsMaterial({
+  const starMaterial = new PointsMaterial({
     size: 1.5,
     vertexColors: true,
     transparent: true,
     opacity: 0.8,
   });
   
-  const stars = new THREE.Points(starGeometry, starMaterial);
+  const stars = new Points(starGeometry, starMaterial);
   scene.add(stars);
 }
 
 // 创建标签
 function createLabel(
   text: string,
-  position: THREE.Vector3,
-  camera: THREE.Camera,
+  position: Vector3,
+  camera: Camera,
   canvas: HTMLCanvasElement,
   isSelected: boolean
 ): HTMLDivElement {
@@ -588,8 +637,8 @@ function createLabel(
 // 更新标签位置
 function updateLabelPosition(
   label: HTMLDivElement,
-  position: THREE.Vector3,
-  camera: THREE.Camera,
+  position: Vector3,
+  camera: Camera,
   canvas: HTMLCanvasElement
 ) {
   const tempV = position.clone();

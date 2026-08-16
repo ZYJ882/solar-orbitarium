@@ -15,7 +15,7 @@
 
 ## 快速开始
 
-项目需要 Node.js 20 或更高版本。安装依赖并运行开发服务器：
+项目需要 Node.js 22 或更高版本。安装依赖并运行开发服务器：
 
 ```bash
 npm ci
@@ -74,7 +74,7 @@ cd android
 ./gradlew assembleDebug
 ```
 
-生成的调试包位于 `android/app/build/outputs/apk/debug/app-debug.apk`。仓库默认通过 GitHub Actions 生成正式 Release APK；正式签名所需的 keystore 和密码只应配置在 GitHub Actions Secrets 中，不要提交到仓库。发布前请确认 `capacitor.config.ts` 中的 `appId` 已替换为你自己的反向域名标识。
+生成的调试包位于 `android/app/build/outputs/apk/debug/app-debug.apk`。Capacitor 8 要求 Node.js 22+；本地 Android 构建建议使用 Android Studio 2025.2.1 或更高版本，并安装 API 36 SDK。仓库默认通过 GitHub Actions 生成正式 Release APK；正式签名所需的 keystore 和密码只应配置在 GitHub Actions Secrets 中，不要提交到仓库。发布前请确认 `capacitor.config.ts` 中的 `appId` 已替换为你自己的反向域名标识。
 
 ## GitHub Actions 发布
 

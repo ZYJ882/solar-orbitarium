@@ -6,6 +6,7 @@ title 太阳系观测站 · 一键发布到 GitHub
 echo.
 echo   太阳系观测站 · 一键发布到 GitHub
 echo   ---------------------------------
+echo   推送后自动编译 APK，并自动发布到 Releases「最新构建」页面
 
 where git >nul 2>nul
 if errorlevel 1 (
@@ -47,21 +48,13 @@ if errorlevel 1 (
   git push -u origin main
 )
 
-set /p REL="🏷️  立即发布 v1.0.0（自动编译 APK 并挂到 Releases）？[Y/n]: "
-if /i "%REL%"=="n" goto :skip
-
-git tag v1.0.0 >nul 2>nul
-git push origin v1.0.0
 echo.
 echo ✅ 完成！GitHub Actions 正在云端编译 APK（约 5-8 分钟）
+echo    编译完成后 APK 会自动发布到 Releases「最新构建」页面：
+echo.
 echo    仓库     https://github.com/%OWNER%/%REPO%
 echo    构建进度 https://github.com/%OWNER%/%REPO%/actions
 echo    APK 下载 https://github.com/%OWNER%/%REPO%/releases
-pause & exit /b 0
-
-:skip
 echo.
-echo ✅ 代码已推送！之后想触发 APK 构建时运行：
-echo    git tag v1.0.0 ^&^& git push origin v1.0.0
-echo    仓库 https://github.com/%OWNER%/%REPO%
+echo 💡 以后改了代码，再双击一次 publish.bat 即可自动出新版 APK。
 pause

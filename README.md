@@ -57,18 +57,14 @@ npx @capacitor/assets generate --android
 
 ## ☁️ 方式三：推送到 GitHub，APK 全自动产出（推荐）
 
-仓库已内置流水线 `.github/workflows/android.yml`，无需本地安装 Android SDK：
+仓库已内置流水线 `.github/workflows/android.yml`，无需本地安装 Android SDK，**全自动发布**：
 
-- **每次 push 到 main**：自动编译 debug APK，上传为 Actions 构件
-  （仓库页 → Actions → 运行记录 → Artifacts 下载，保留 90 天）
-- **推送版本标签**：自动创建 **GitHub Release**，APK 作为附件永久挂在 Release 页面
+- 每次 **push 到 main**（或在 Actions 页面手动点 **Run workflow**）→ 云端自动编译 debug APK
+- 编译完成后**自动创建 / 更新**名为「**最新构建**」的 GitHub Release，
+  APK 以带时间戳的文件名（如 `solar-orbitarium-20260211-0930.apk`）永久挂在 Release 页面
+- 无需打标签、无需任何额外命令
 
-```bash
-git tag v1.0.0
-git push origin v1.0.0     # 触发发布流水线
-```
-
-下载 APK：仓库页 → **Releases** → 选择版本 → Assets → `solar-orbitarium-v1.0.0.apk`，
+下载 APK：仓库页 → **Releases** → 「最新构建」 → Assets → 选时间最新的 `solar-orbitarium-*.apk`，
 传到手机直接安装（首次安装需允许"未知来源应用"）。
 
 ### 📱 只有手机的新手方法（最简单，零命令行）
@@ -82,7 +78,7 @@ git push origin v1.0.0     # 触发发布流水线
    （注意要包含隐藏的 `.github` 文件夹，它负责自动编译；手机文件管理器需开启"显示隐藏文件"）
    → 拉到底点 `Commit changes`
 4. **点按钮编译**：仓库页 → `Actions` 标签 → 左侧选 `android` → 点 `Run workflow` → 再点绿色 `Run workflow`
-5. **等 5-8 分钟**，然后到仓库页 → `Releases` → 下载 `solar-orbitarium-v1.0.0.apk`
+5. **等 5-8 分钟**（编译完成会**自动发布**到 Releases，无需任何额外操作），然后到仓库页 → `Releases` → 「最新构建」 → 下载时间最新的 `solar-orbitarium-*.apk`
 6. **装到手机**：点 APK → 允许"未知来源应用" → 安装完成 🎉
 
 > 小提示：手机上传文件夹容易漏掉隐藏的 `.github`。如果 Actions 页面是空的，
@@ -97,15 +93,15 @@ git push origin v1.0.0     # 触发发布流水线
 - macOS / Linux：`bash publish.sh`
 - Windows：双击 `publish.bat`（或在 cmd 中运行）
 
-脚本会自动完成：**浏览器授权登录 → 创建公开仓库 → 提交并推送代码 → 询问是否打 `v1.0.0` 标签**。确认打标签后，Actions 立即开始云端编译 APK，5-8 分钟后出现在 Releases 页面。
+脚本会自动完成：**浏览器授权登录 → 创建公开仓库 → 提交并推送代码**。推送后 Actions 立即开始云端编译 APK，5-8 分钟后**自动发布**到 Releases「最新构建」页面（无需打标签）。
 
 **方式 B：纯浏览器，不装任何工具**
 
 1. 把项目文件夹整体压缩为 zip
 2. github.com → **New repository** → 命名 `solar-orbitarium` → **Create**
 3. 点 **uploading an existing file**，解压 zip 后将**全部文件**（含隐藏的 `.github` 文件夹）拖入 → Commit
-4. 进入 **Releases → Draft a new release**，tag 填 `v1.0.0` → **Publish release**
-5. Actions 自动编译，APK 几分钟后挂到 Releases 页面
+4. Commit 后流水线**自动开始编译**（也可到 `Actions` 标签页查看进度，或手动点 `Run workflow`）
+5. 约 5-8 分钟后，APK **自动发布**到 Releases 的「最新构建」页面
 
 **方式 C：手动 git 命令**
 
@@ -116,10 +112,7 @@ git commit -m "feat: 太阳系观测站 · 交互式轨道演示"
 
 git branch -M main
 git remote add origin https://github.com/你的用户名/solar-orbitarium.git
-git push -u origin main      # ① 推送代码，Actions 开始自动构建
-
-git tag v1.0.0
-git push origin v1.0.0       # ② 发布 1.0.0，APK 自动挂到 Releases 页面
+git push -u origin main      # 推送即自动编译，完成后 APK 自动发布到 Releases「最新构建」
 ```
 
 （方式 C 需先在 GitHub 网页创建同名空仓库，不勾选自动生成 README。

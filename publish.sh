@@ -3,6 +3,8 @@
 # 太阳系观测站 · 一键发布到 GitHub（自动触发 APK 构建）
 # 用法:  bash publish.sh
 # 前置:  git + GitHub CLI (gh)，脚本会自动检测并给出安装指引
+# 说明:  推送完成后 GitHub Actions 自动编译 APK，
+#        并自动发布到仓库的 Releases「最新构建」页面，无需打标签。
 # ============================================================
 set -euo pipefail
 
@@ -50,7 +52,7 @@ git add -A
 git commit -m "feat: 太阳系观测站 · 交互式太阳系教学演示" >/dev/null 2>&1 \
   || echo "（无新改动，跳过提交）"
 
-# ---- 6. 创建公开仓库并推送 ----
+# ---- 6. 创建公开仓库并推送（推送后自动编译 APK 并发布到 Releases）----
 if gh repo view "${OWNER}/${REPO}" >/dev/null 2>&1; then
   echo "⚠️  仓库 @${OWNER}/${REPO} 已存在，直接推送..."
   git remote set-url origin "https://github.com/${OWNER}/${REPO}.git" 2>/dev/null \
@@ -62,20 +64,12 @@ else
     --description "太阳系观测站 · 交互式太阳系教学演示（PWA + GitHub Actions 自动构建 APK）"
 fi
 
-# ---- 7. 打标签 → Actions 自动编译 APK 并发布到 Releases ----
-printf "🏷️  立即发布 v1.0.0（自动编译 APK 并挂到 Releases）？[Y/n]: "
-read -r rel
-if [[ "${rel:-Y}" =~ ^[Yy]?$ ]]; then
-  git tag v1.0.0 2>/dev/null || git tag -f v1.0.0
-  git push origin v1.0.0
-  echo ""
-  echo "✅ 完成！GitHub Actions 正在云端编译 APK（约 5-8 分钟）"
-  echo "   仓库     https://github.com/${OWNER}/${REPO}"
-  echo "   构建进度 https://github.com/${OWNER}/${REPO}/actions"
-  echo "   APK 下载 https://github.com/${OWNER}/${REPO}/releases"
-else
-  echo ""
-  echo "✅ 代码已推送！之后想触发 APK 构建时运行："
-  echo "   git tag v1.0.0 && git push origin v1.0.0"
-  echo "   仓库 https://github.com/${OWNER}/${REPO}"
-fi
+echo ""
+echo "✅ 完成！GitHub Actions 正在云端编译 APK（约 5-8 分钟）"
+echo "   编译完成后 APK 会自动发布到 Releases「最新构建」页面："
+echo ""
+echo "   仓库     https://github.com/${OWNER}/${REPO}"
+echo "   构建进度 https://github.com/${OWNER}/${REPO}/actions"
+echo "   APK 下载 https://github.com/${OWNER}/${REPO}/releases"
+echo ""
+echo "💡 以后改了代码，再跑一次 bash publish.sh 即可自动出新版 APK。"

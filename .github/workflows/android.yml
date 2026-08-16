@@ -1,16 +1,21 @@
 # 安卓自动化流水线 · 支持 tar 压缩包自动解压
-# ───────────────────────────────────────────────
+# ─────────────────────────────────────────────────
 # 触发：push 到 main/master，或在 Actions 页面手动点 "Run workflow"
 # 流程：
-#   1. 若仓库根目录没有 src/ 源码，但存在 tar 包（*.tar / *.tar.gz），自动解压
+#   1. 自动读取 Git 提交计数作为版本号
 #   2. npm build → cap add android → gradle assembleDebug
-#   3. 编译完成后自动发布 APK 到 Releases「最新构建」页面（永久下载链接）
+#   3. 编译完成后自动发布 APK 到独立版本（可覆盖安装）
 name: android
 
 on:
   push:
     branches: [main, master]
   workflow_dispatch:
+
+env:
+  # 使用 Git 提交计数作为版本号
+  VERSION_CODE: ${{ github.run_number }}
+  VERSION_NAME: "v${{ github.run_number }}"
 
 permissions:
   contents: write
@@ -21,6 +26,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: 自动解压项目 tar 包（如 src/ 不存在）
         run: |
@@ -40,7 +47,7 @@ jobs:
             *.tar.gz|*.tgz) tar -xzf "$ARCHIVE" ;;
             *.tar)          tar -xf  "$ARCHIVE" ;;
           esac
-          # 兼容解压后"多套一层文件夹"的情况：找到 package.json 所在目录并提升到根
+          # 兼容解压后"多套一层文件夹"的情况
           if [ ! -f package.json ]; then
             INNER_DIR="$(dirname "$(find . -mindepth 2 -name package.json -print -quit 2>/dev/null)" 2>/dev/null || true)"
             if [ -n "$INNER_DIR" ] && [ "$INNER_DIR" != "." ]; then
@@ -74,6 +81,14 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      - name: Fix gradle.properties
+        run: |
+          cd android
+          echo "android.applicationIdSuffix=.dev" >> android/app/gradle.properties
+          echo "android.versionCode=${VERSION_CODE}" >> android/app/gradle.properties
+          echo "android.versionName=${VERSION_NAME}" >> android/app/gradle.properties
+          cat android/app/gradle.properties
+
       - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
@@ -82,28 +97,39 @@ jobs:
           cache: gradle
           cache-dependency-path: android/**/*.gradle*
 
-      - name: Build debug APK
+      - name: Build debug APK with fixed version
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
-      - name: 整理产物（按构建时间命名 APK）
+      - name: 整理产物（使用固定 APK 名称）
         run: |
           mkdir -p out
-          TS="$(date -u +%Y%m%d-%H%M)"
-          cp android/app/build/outputs/apk/debug/app-debug.apk "out/solar-orbitarium-${TS}.apk"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "out/solar-orbitarium-${VERSION_NAME}.apk"
 
-      - name: 自动发布到 Releases「最新构建」
+      - name: 自动发布到独立版本
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: "最新构建 · 自动编译 APK"
+          tag_name: ${VERSION_NAME}
+          name: "太阳系模拟器 ${VERSION_NAME}"
           body: |
-            本页面由 GitHub Actions 自动更新：每次编译成功后，最新 APK 会自动发布到这里。
-
-            **安装方法**：下载 `solar-orbitarium-*.apk` → 点击打开 → 提示「未知来源应用」选择允许 → 安装完成。
-
-            > 下载日期时间最新的那个文件，就是最新版本。
+            🎉 **版本号：${VERSION_NAME}**
+            
+            这是自动构建的太阳系模拟器 Android 安装包。
+            
+            **版本说明**：
+            - 每次代码更新都会生成新版本（可覆盖安装）
+            - 使用 Gradle 依赖自动缓存，加速构建
+            
+            **安装方法**：
+            1. 下载 `solar-orbitarium-${VERSION_NAME}.apk`
+            2. 点击打开 APK 文件
+            3. 允许「未知来源应用」安装
+            4. 自动安装完成
+            
+            **覆盖安装提示**：
+            如果你安装过旧版本，建议先卸载再安装新版本，或直接覆盖安装。
           files: out/*.apk
+          prerelease: true
           make_latest: true

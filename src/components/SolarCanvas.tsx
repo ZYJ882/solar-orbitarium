@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { BODIES, PLANETS, SUN } from "../data/planets";
 
 interface Props {
@@ -32,8 +32,30 @@ interface Meteor {
   life: number;
 }
 
+interface PlanetGeom {
+  pl: typeof PLANETS[0];
+  theta: number;
+  rx: number;
+  ry: number;
+  x: number;
+  y: number;
+  r: number;
+}
+
+interface Position {
+  x: number;
+  y: number;
+  r: number;
+}
+
 const TAU = Math.PI * 2;
-const BASE_DAYS_PER_SEC = 10; // 1× 速度下，1 秒 ≈ 10 个地球日
+const BASE_DAYS_PER_SEC = 10;
+
+// 预计算轨道参数，避免每帧重复计算
+const PRECOMPUTED_ORBITS = PLANETS.map((pl) => ({
+  orbitT: orbitT(pl.au),
+  displayR: displayRadius(pl.diameterKm),
+}));
 
 /** 轨道半径归一化（非线性压缩，兼顾内行星间距与外行星可达性） */
 function orbitT(au: number) {
@@ -270,7 +292,7 @@ export default function SolarCanvas({
         ctx!.stroke();
       }
 
-      /* 几何布局 */
+      /* 几何布局 - 使用预计算值优化 */
       const cx = w / 2;
       const cy = h / 2;
       const availX = Math.max(120, w / 2 - 60);
@@ -280,21 +302,23 @@ export default function SolarCanvas({
       const positions = sim.positions;
       positions.clear();
 
-      const geom = PLANETS.map((pl, i) => {
-        const tt = orbitT(pl.au);
+      const geom: PlanetGeom[] = new Array(PLANETS.length);
+      for (let i = 0; i < PLANETS.length; i++) {
+        const pl = PLANETS[i];
+        const pre = PRECOMPUTED_ORBITS[i];
         const theta = phases[i] + (TAU * sim.days) / pl.periodDays;
-        const rx = tt * capX;
-        const ry = tt * availY;
-        return {
+        const rx = pre.orbitT * capX;
+        const ry = pre.orbitT * availY;
+        geom[i] = {
           pl,
           theta,
           rx,
           ry,
           x: cx + rx * Math.cos(theta),
           y: cy + ry * Math.sin(theta),
-          r: displayRadius(pl.diameterKm),
+          r: pre.displayR,
         };
-      });
+      }
 
       /* 轨道线 */
       if (p.showOrbits) {
@@ -320,12 +344,14 @@ export default function SolarCanvas({
         });
       }
 
-      /* 行星尾迹（锥形渐变） */
+      /* 行星尾迹（锥形渐变）- 使用预计算值优化 */
       const hasConic = typeof ctx!.createConicGradient === "function";
       if (hasConic) {
         ctx!.save();
         ctx!.globalCompositeOperation = "lighter";
-        geom.forEach(({ pl, theta }) => {
+        for (let i = 0; i < geom.length; i++) {
+          const { pl, theta } = geom[i];
+          const pre = PRECOMPUTED_ORBITS[i];
           const span = Math.min(1.8, Math.max(0.22, 13 / Math.sqrt(pl.periodDays)));
           const grad = (ctx as CanvasRenderingContext2D).createConicGradient(
             theta - span,
@@ -341,9 +367,9 @@ export default function SolarCanvas({
           ctx!.strokeStyle = grad;
           ctx!.lineWidth = 2;
           ctx!.beginPath();
-          ctx!.ellipse(cx, cy, orbitT(pl.au) * capX, orbitT(pl.au) * availY, 0, 0, TAU);
+          ctx!.ellipse(cx, cy, pre.orbitT * capX, pre.orbitT * availY, 0, 0, TAU);
           ctx!.stroke();
-        });
+        }
         ctx!.restore();
       }
 
@@ -378,8 +404,9 @@ export default function SolarCanvas({
       ctx!.fill();
       positions.set("sun", { x: cx, y: cy, r: sunR });
 
-      /* 行星 */
-      geom.forEach(({ pl, x, y, r, theta }) => {
+      /* 行星 - 使用 for 循环优化 */
+      for (let i = 0; i < geom.length; i++) {
+        const { pl, x, y, r } = geom[i];
         positions.set(pl.id, { x, y, r });
 
         /* 土星环（后半） */
@@ -486,8 +513,7 @@ export default function SolarCanvas({
               : "rgba(196,214,238,0.72)";
           ctx!.fillText(pl.name, x, y - r - 9);
         }
-        void theta;
-      });
+      }
 
       /* 太阳标签与选中态 */
       if (p.showLabels || p.selectedId === "sun" || sim.hover === "sun") {

@@ -1,25 +1,40 @@
 import { PLANETS, formatKm } from "../data/planets";
 import { useReveal } from "../hooks/useReveal";
+import { useMemo } from "react";
 
-function Bar({
-  pct,
-  color,
-  visible,
-  delay,
-}: {
+interface BarProps {
   pct: number;
   color: string;
   visible: boolean;
   delay: number;
-}) {
+}
+
+// 使用 useMemo 缓存计算结果
+const BAR_STYLES = new Map<string, { width: string; background: string; boxShadow: string }>();
+
+function getBarStyle(pct: number, color: string, visible: boolean): { width: string; background: string; boxShadow: string } {
+  const key = `${pct}-${color}-${visible}`;
+  if (BAR_STYLES.has(key)) {
+    return BAR_STYLES.get(key)!;
+  }
+  const style = {
+    width: visible ? `${pct}%` : "0%",
+    background: `linear-gradient(90deg, ${color}88, ${color})`,
+    boxShadow: `0 0 12px ${color}44`,
+  };
+  BAR_STYLES.set(key, style);
+  return style;
+}
+
+function Bar({ pct, color, visible, delay }: BarProps) {
+  const style = useMemo(() => getBarStyle(pct, color, visible), [pct, color, visible]);
+  
   return (
     <div className="h-[6px] w-full overflow-hidden rounded-full bg-[#141f33]">
       <div
         className="h-full rounded-full transition-[width] duration-[1200ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
         style={{
-          width: visible ? `${pct}%` : "0%",
-          background: `linear-gradient(90deg, ${color}88, ${color})`,
-          boxShadow: `0 0 12px ${color}44`,
+          ...style,
           transitionDelay: `${delay}ms`,
         }}
       />
@@ -30,8 +45,11 @@ function Bar({
 function Row({ index, delayBase }: { index: number; delayBase: number }) {
   const pl = PLANETS[index];
   const { ref, visible } = useReveal<HTMLDivElement>(0.25);
-  const dPct = Math.sqrt(pl.diameterKm / 142984) * 100;
-  const aPct = Math.sqrt(pl.au / 30.07) * 100;
+  // 使用 useMemo 缓存计算结果
+  const { dPct, aPct } = useMemo(() => ({
+    dPct: Math.sqrt(pl.diameterKm / 142984) * 100,
+    aPct: Math.sqrt(pl.au / 30.07) * 100,
+  }), [pl.diameterKm, pl.au]);
 
   return (
     <div

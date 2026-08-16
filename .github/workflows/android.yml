@@ -116,7 +116,7 @@ jobs:
       - name: 校验 APK 签名证书
         run: |
           APK="android/app/build/outputs/apk/release/app-release.apk"
-          CERT_ENTRY="$(unzip -Z1 "$APK" | grep -E 'META-INF/[^/]+\\.(RSA|DSA|EC)$' | head -n 1)"
+          CERT_ENTRY="$(unzip -Z1 "$APK" | grep -E 'META-INF/[^/]+\.(RSA|DSA|EC)$' | head -n 1)"
           test -n "$CERT_ENTRY" || { echo "APK signature certificate not found"; exit 1; }
           unzip -p "$APK" "$CERT_ENTRY" > /tmp/release-cert.bin
           keytool -printcert -file /tmp/release-cert.bin | grep -E 'Owner:|SHA256:'

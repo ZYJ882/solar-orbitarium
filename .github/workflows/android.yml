@@ -9,6 +9,9 @@ on:
       - "package.json"
       - "package-lock.json"
       - "capacitor.config.ts"
+      - "index.html"
+      - "tsconfig.json"
+      - "vite.config.js"
       - ".github/workflows/android.yml"
   workflow_dispatch:
 

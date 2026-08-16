@@ -71,6 +71,23 @@ git push origin v1.0.0     # 触发发布流水线
 下载 APK：仓库页 → **Releases** → 选择版本 → Assets → `solar-orbitarium-v1.0.0.apk`，
 传到手机直接安装（首次安装需允许"未知来源应用"）。
 
+### 📱 只有手机的新手方法（最简单，零命令行）
+
+全程在**手机浏览器**完成，不装任何软件、不打任何命令：
+
+1. **下载项目**：在本工具/平台里找到「下载 / 导出项目」按钮，把项目存成 zip 到手机
+2. **建仓库**：手机浏览器打开 `github.com` → 登录 → 右上角 `+` → `New repository`
+   - 名字填 `solar-orbitarium` → 选 `Public` → 点 `Create repository`
+3. **传文件**：在新仓库页面点 `uploading an existing file`，把解压后的**全部文件**拖/选进去
+   （注意要包含隐藏的 `.github` 文件夹，它负责自动编译；手机文件管理器需开启"显示隐藏文件"）
+   → 拉到底点 `Commit changes`
+4. **点按钮编译**：仓库页 → `Actions` 标签 → 左侧选 `android` → 点 `Run workflow` → 再点绿色 `Run workflow`
+5. **等 5-8 分钟**，然后到仓库页 → `Releases` → 下载 `solar-orbitarium-v1.0.0.apk`
+6. **装到手机**：点 APK → 允许"未知来源应用" → 安装完成 🎉
+
+> 小提示：手机上传文件夹容易漏掉隐藏的 `.github`。如果 Actions 页面是空的，
+> 说明没传上去——用电脑或请朋友帮忙传一次即可，之后都能在手机上点按钮重新编译。
+
 ### 发布到 GitHub：三种方式任选
 
 **方式 A：一键脚本（推荐，约 1 分钟）**

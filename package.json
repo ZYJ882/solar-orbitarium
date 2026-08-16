@@ -1,11 +1,14 @@
 {
-  "name": "sandbox-workspace",
+  "name": "solar-orbitarium",
+  "version": "1.0.18",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "typecheck": "tsc --noEmit"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run build"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.1",

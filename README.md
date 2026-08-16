@@ -1,150 +1,87 @@
 # 太阳系观测站 · Solar Orbitarium
 
-一个用于天文教学的**交互式太阳系演示**，基于 React + Canvas 构建，并配置为可直接打包成**安卓 App**（PWA / Capacitor APK 双通道）。
+太阳系观测站是一个面向教学与探索的交互式太阳系演示。它以太阳和八大行星为核心，提供按真实公转周期缩放的轨道动画、天体档案、运行速度控制、轨道与标签图层切换，以及行星数据对比视图。项目同时支持浏览器 PWA 和 Capacitor Android 打包。
 
-## ✨ 功能特性
+## 功能概览
 
-- 🪐 **真实比例的轨道运动**：八大行星按真实公转周期比例运行（水星 88 天 → 海王星 164.8 年）
-- 🖱️ **点击天体查看档案**：名称、直径（含"≈ 几倍地球"换算）、与太阳距离（百万 km / AU）、公转周期（含地球日换算），以及自转、卫星数、温度与趣味知识
-- ▶️ **播放 / 暂停 / 速度调节**：0.1×–200× 速度滑杆，空格键快捷播放暂停，模拟时钟显示"已运行 X 年 X 天"
-- 🏷️ **图层开关**：轨道线 / 名称标签可独立显隐，另有左侧天体快速导航
-- 📊 **数据对比区**：直径、距日距离、公转周期条形图随滚动逐行显现，附趣味数据带
-- 📱 **可安装为安卓 App**：PWA 支持（全屏独立窗口 + 离线可用），并内置 Capacitor 打包配置与 GitHub Actions 自动构建 APK
+| 模块 | 说明 |
+| --- | --- |
+| 轨道模拟 | 太阳与八大行星按公转周期比例运行，支持播放、暂停和 0.1×–200× 速度调节。 |
+| 天体档案 | 展示直径、距日距离、公转周期、自转周期、卫星数、温度和科普资料。 |
+| 交互导航 | 支持左侧快速选择、键盘空格键播放/暂停，以及轨道线和名称标签开关。 |
+| 数据对比 | 以压缩后的平方根比例展示行星直径和距日距离，并提供趣味数据卡片。 |
+| 安装方式 | 可作为离线 PWA 安装，也可通过 Capacitor 构建 Android APK。 |
 
-## 🚀 本地运行
+## 快速开始
+
+项目需要 Node.js 20 或更高版本。安装依赖并运行开发服务器：
 
 ```bash
-npm install
-npm run dev      # 开发预览
-npm run build    # 产出 dist/
+npm ci
+npm run dev
 ```
 
-## 📱 方式一：作为 PWA 安装到安卓手机（零构建）
-
-1. 将 `dist/` 部署到任意 HTTPS 静态托管（GitHub Pages / Vercel / Netlify 均可）
-2. 安卓手机用 **Chrome** 打开站点
-3. 点右上角菜单 → **添加到主屏幕**（或点击应用右上角出现的「安装 App」按钮）
-4. 从桌面图标启动：全屏独立窗口运行，无地址栏，**离线可用**（Service Worker 缓存）
-
-## 🤖 方式二：本地构建真正的 APK（Capacitor）
-
-前置条件：Node 20+、JDK 17、Android SDK（安装 [Android Studio](https://developer.android.com/studio) 即可自动配齐）。
+常用命令如下：
 
 ```bash
-# 1. 先把 capacitor.config.ts 里的 appId 改成你的反向域名
-#    例如 com.yourname.solarorbitarium
+npm run check       # TypeScript 类型检查 + 生产构建
+npm run typecheck   # 仅类型检查
+npm run build       # 仅生产构建
+npm run preview     # 预览已构建的 dist/
+```
 
-npm install
+## 项目结构
+
+```text
+src/
+├── App.tsx                 # 页面状态与整体布局
+├── components/
+│   ├── SolarCanvas.tsx     # 轨道动画与画布渲染
+│   ├── ControlBar.tsx      # 播放控制与速度调节
+│   ├── PlanetNav.tsx       # 天体快速导航
+│   ├── InfoPanel.tsx       # 当前天体档案
+│   └── DataComparison.tsx   # 行星数据对比
+├── data/planets.ts         # 天体数据、格式化工具和查询函数
+├── hooks/useReveal.ts       # 滚动显现动画 Hook
+└── index.css               # 全局样式与视觉主题
+public/
+├── manifest.webmanifest     # PWA 清单
+├── sw.js                    # 离线缓存 Service Worker
+└── icons/icon.svg           # 应用图标
+capacitor.config.ts          # Capacitor Android 配置
+.github/workflows/android.yml# GitHub Actions Android 发布流程
+```
+
+## PWA 使用
+
+生产构建完成后，将 `dist/` 部署到支持 HTTPS 的静态托管服务，即可在移动浏览器中选择“添加到主屏幕”。Service Worker 会缓存应用的静态资源；若修改缓存策略或资源入口，请同步更新 `public/sw.js` 中的缓存版本号，避免旧缓存影响测试。
+
+## Android 打包
+
+本地调试 APK 的基本流程如下：
+
+```bash
 npm run build
-
-npx cap add android     # 首次执行，生成 android/ 平台目录
-npx cap sync android    # 每次前端改动后同步
-
+npx cap add android       # 仅首次执行
+npx cap sync android
 cd android
-./gradlew assembleDebug # Windows: gradlew.bat assembleDebug
+./gradlew assembleDebug
 ```
 
-产物位置：`android/app/build/outputs/apk/debug/app-debug.apk`，传到手机即可安装。
-也可以用 Android Studio 打开 `android/` 目录，可视化构建 / 签名 Release 版本。
+生成的调试包位于 `android/app/build/outputs/apk/debug/app-debug.apk`。仓库默认通过 GitHub Actions 生成正式 Release APK；正式签名所需的 keystore 和密码只应配置在 GitHub Actions Secrets 中，不要提交到仓库。发布前请确认 `capacitor.config.ts` 中的 `appId` 已替换为你自己的反向域名标识。
 
-**更换启动图标**（可选）：
+## GitHub Actions 发布
 
-```bash
-mkdir assets
-# 把一张 1024×1024 的 PNG 图标放到 assets/icon.png（可用项目里的 public/icons/icon.svg 导出）
-npx @capacitor/assets generate --android
-```
+向 `main` 分支推送会触发 `.github/workflows/android.yml`。流程会安装依赖、执行 Web 构建、同步 Capacitor Android 平台、构建 Release APK，并将产物上传到 GitHub Release。正式签名需要配置 `ANDROID_KEYSTORE_BASE64`、`KEYSTORE_PASSWORD`、`KEY_ALIAS` 和 `KEY_PASSWORD` 四个 Secrets；如果只需要验证 Web 构建，可直接在本地运行 `npm run check`。
 
-## ☁️ 方式三：推送到 GitHub，APK 全自动产出（推荐）
+## 数据说明
 
-仓库已内置流水线 `.github/workflows/android.yml`，无需本地安装 Android SDK，**全自动发布**：
+行星档案数据集中维护在 `src/data/planets.ts`。轨道动画使用归一化后的距离和周期，目的是让不同数量级的天体可以同时显示，并不代表视觉上的真实空间比例。数据和科普文字适合教学演示，涉及精密天文学的场景应以权威星历或天文数据库为准。
 
-- 每次 **push 到 main**（或在 Actions 页面手动点 **Run workflow**）→ 云端自动编译 debug APK
-- 编译完成后**自动创建 / 更新**名为「**最新构建**」的 GitHub Release，
-  APK 以带时间戳的文件名（如 `solar-orbitarium-20260211-0930.apk`）永久挂在 Release 页面
-- 无需打标签、无需任何额外命令
+## 贡献约定
 
-下载 APK：仓库页 → **Releases** → 「最新构建」 → Assets → 选时间最新的 `solar-orbitarium-*.apk`，
-传到手机直接安装（首次安装需允许"未知来源应用"）。
-
-### 📱 只有手机的新手方法（最简单，零命令行）
-
-全程在**手机浏览器**完成，不装任何软件、不打任何命令：
-
-1. **下载项目**：在本工具/平台里找到「下载 / 导出项目」按钮，把项目存成 zip 到手机
-2. **建仓库**：手机浏览器打开 `github.com` → 登录 → 右上角 `+` → `New repository`
-   - 名字填 `solar-orbitarium` → 选 `Public` → 点 `Create repository`
-3. **传文件**：在新仓库页面点 `uploading an existing file`，把解压后的**全部文件**拖/选进去
-   （注意要包含隐藏的 `.github` 文件夹，它负责自动编译；手机文件管理器需开启"显示隐藏文件"）
-   → 拉到底点 `Commit changes`
-4. **点按钮编译**：仓库页 → `Actions` 标签 → 左侧选 `android` → 点 `Run workflow` → 再点绿色 `Run workflow`
-5. **等 5-8 分钟**（编译完成会**自动发布**到 Releases，无需任何额外操作），然后到仓库页 → `Releases` → 「最新构建」 → 下载时间最新的 `solar-orbitarium-*.apk`
-6. **装到手机**：点 APK → 允许"未知来源应用" → 安装完成 🎉
-
-> 小提示：手机上传文件夹容易漏掉隐藏的 `.github`。如果 Actions 页面是空的，
-> 说明没传上去——用电脑或请朋友帮忙传一次即可，之后都能在手机上点按钮重新编译。
-
-### 发布到 GitHub：三种方式任选
-
-**方式 A：一键脚本（推荐，约 1 分钟）**
-
-先安装 [GitHub CLI](https://cli.github.com)（`brew install gh` / `winget install GitHub.cli` / `sudo apt install gh`），然后在项目根目录运行：
-
-- macOS / Linux：`bash publish.sh`
-- Windows：双击 `publish.bat`（或在 cmd 中运行）
-
-脚本会自动完成：**浏览器授权登录 → 创建公开仓库 → 提交并推送代码**。推送后 Actions 立即开始云端编译 APK，5-8 分钟后**自动发布**到 Releases「最新构建」页面（无需打标签）。
-
-**方式 B：纯浏览器，不装任何工具**
-
-1. 把项目文件夹整体压缩为 zip
-2. github.com → **New repository** → 命名 `solar-orbitarium` → **Create**
-3. 点 **uploading an existing file**，解压 zip 后将**全部文件**（含隐藏的 `.github` 文件夹）拖入 → Commit
-4. Commit 后流水线**自动开始编译**（也可到 `Actions` 标签页查看进度，或手动点 `Run workflow`）
-5. 约 5-8 分钟后，APK **自动发布**到 Releases 的「最新构建」页面
-
-**方式 C：手动 git 命令**
-
-```bash
-git init
-git add .
-git commit -m "feat: 太阳系观测站 · 交互式轨道演示"
-
-git branch -M main
-git remote add origin https://github.com/你的用户名/solar-orbitarium.git
-git push -u origin main      # 推送即自动编译，完成后 APK 自动发布到 Releases「最新构建」
-```
-
-（方式 C 需先在 GitHub 网页创建同名空仓库，不勾选自动生成 README。
-正式发布前建议把 `capacitor.config.ts` 里的 `appId` 改成你的反向域名。）
-
-若要同时托管网页版：仓库 Settings → Pages → 选择 GitHub Actions 或将 `dist/` 部署到 Vercel/Netlify 即可。
-
-## 🗂️ 项目结构
-
-```
-├── public/
-│   ├── manifest.webmanifest   # PWA 清单（应用名/图标/全屏模式）
-│   ├── sw.js                  # Service Worker（离线缓存）
-│   └── icons/icon.svg         # 应用图标
-├── src/
-│   ├── components/
-│   │   ├── SolarCanvas.tsx    # Canvas 轨道模拟（星空/行星/彗星/交互）
-│   │   ├── ControlBar.tsx     # 播放/暂停/速度/图层/重置
-│   │   ├── InfoPanel.tsx      # 天体档案面板
-│   │   ├── PlanetNav.tsx      # 天体导航
-│   │   └── DataComparison.tsx # 数据对比区 + 趣味数据带
-│   ├── data/planets.ts        # 天体数据（参考 NASA 行星事实表）
-│   ├── hooks/useReveal.ts     # 滚动显现 Hook
-│   └── App.tsx                # 组装与状态管理
-├── capacitor.config.ts        # 安卓打包配置
-└── .github/workflows/android.yml  # APK 自动构建工作流
-```
-
-## 📚 数据说明
-
-行星数据参考 NASA Planetary Fact Sheet；为满足教学可视性，**轨道半径与行星尺寸经过非线性压缩**（非真实比例），界面中已标注。公转角速度严格按真实周期比例。
+修改前端逻辑或数据后，请先运行 `npm run check`。组件应保持单一职责；新增天体字段时，应同时更新 `CelestialBody` 类型、数据对象和档案面板。详细的提交与验证约定见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## License
 
-MIT · 欢迎用于课堂教学。
+本项目当前未声明开源许可证。如需公开分发、二次开发或引入第三方贡献，请先补充明确的 License 文件。

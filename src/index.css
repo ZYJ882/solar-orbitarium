@@ -1,1 +1,123 @@
 @import "tailwindcss";
+
+:root {
+  --ink: #e7eef8;
+  --muted: #8ea3be;
+  --panel: rgba(9, 15, 28, 0.94);
+  --line: #22304a;
+  --amber: #f5b942;
+  --amber-soft: #ffcf6b;
+  --cyan: #6fd6e3;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
+  background: #05080f;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: "Orbitron", "Noto Sans SC", ui-sans-serif, sans-serif;
+}
+
+::selection {
+  background: rgba(245, 185, 66, 0.35);
+  color: #fff;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #070c16;
+}
+::-webkit-scrollbar-thumb {
+  background: #22304a;
+  border-radius: 8px;
+  border: 2px solid #070c16;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #31456a;
+}
+
+/* ---------- range slider ---------- */
+input[type="range"].speed-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f5b942 var(--fill, 30%), #22304a var(--fill, 30%));
+  outline: none;
+  cursor: pointer;
+}
+input[type="range"].speed-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #ffd97a;
+  border: 2px solid #0a1220;
+  box-shadow: 0 0 0 3px rgba(245, 185, 66, 0.25), 0 0 12px rgba(245, 185, 66, 0.5);
+  transition: transform 0.15s ease;
+}
+input[type="range"].speed-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+}
+input[type="range"].speed-slider::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #ffd97a;
+  border: 2px solid #0a1220;
+  box-shadow: 0 0 0 3px rgba(245, 185, 66, 0.25), 0 0 12px rgba(245, 185, 66, 0.5);
+}
+
+/* ---------- scroll reveal ---------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.9s ease,
+    transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---------- small animations ---------- */
+@keyframes blinkDot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+.blink-dot {
+  animation: blinkDot 1.6s ease-in-out infinite;
+}
+
+@keyframes floatHint {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+.float-hint {
+  animation: floatHint 2.8s ease-in-out infinite;
+}
+
+@keyframes spinSlow {
+  to { transform: rotate(360deg); }
+}
+.spin-slow {
+  animation: spinSlow 14s linear infinite;
+}
+
+.panel-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+}

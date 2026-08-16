@@ -1,0 +1,50 @@
+# 推送到 GitHub 后自动构建安卓 APK（Debug 版，可直接安装）
+# 在仓库页面 Actions → android apk → 运行记录 → Artifacts 中下载
+name: android apk
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web assets
+        run: npm run build
+
+      - name: Add & sync Android platform (Capacitor)
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Build debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: solar-orbitarium-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk

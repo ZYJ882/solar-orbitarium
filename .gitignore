@@ -1,5 +1,30 @@
+# dependencies
+node_modules
+
+# build output
+dist
+dist-ssr
+
+# android / capacitor 平台目录（由 npx cap add 生成）
+android
+ios
+
+# gradle / android studio
+.gradle
+build
+local.properties
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# misc
+.DS_Store
+*.local
+.env
+.env.*
+*.log
 node_modules/
 .next/
 dist/
 build/
-*.log

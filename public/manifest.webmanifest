@@ -1,0 +1,28 @@
+{
+  "name": "太阳系观测站 · Solar Orbitarium",
+  "short_name": "太阳系观测站",
+  "description": "交互式太阳系教学演示：八大行星轨道运动模拟、天体档案、公转周期与速度调节。",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#05080f",
+  "theme_color": "#05080f",
+  "lang": "zh-CN",
+  "categories": ["education", "science"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

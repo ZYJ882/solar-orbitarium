@@ -10,6 +10,12 @@ import { BODIES, getBody, formatDays } from "./data/planets";
 const vToSpeed = (v: number) => 0.1 * Math.pow(2000, v);
 const DEFAULT_V = Math.log(10) / Math.log(2000); // ≈ 1×
 
+/** Chrome 安装提示事件（PWA beforeinstallprompt） */
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+}
+
 export default function App() {
   const [playing, setPlaying] = useState<boolean>(() => {
     if (typeof window !== "undefined" && window.matchMedia) {
@@ -23,6 +29,22 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [simDays, setSimDays] = useState(0);
   const [resetToken, setResetToken] = useState(0);
+  const [installEvt, setInstallEvt] = useState<BeforeInstallPromptEvent | null>(null);
+
+  /* 捕获浏览器的 PWA 安装提示（安卓 Chrome 会触发） */
+  useEffect(() => {
+    const onPrompt = (e: Event) => {
+      e.preventDefault();
+      setInstallEvt(e as BeforeInstallPromptEvent);
+    };
+    const onInstalled = () => setInstallEvt(null);
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
 
   const speed = useMemo(() => vToSpeed(sliderV), [sliderV]);
   const selectedBody = useMemo(() => getBody(selectedId), [selectedId]);
@@ -90,18 +112,42 @@ export default function App() {
             </div>
           </div>
 
-          <div className="panel-card flex items-center gap-2.5 rounded-full px-4 py-2">
-            <span
-              className={`h-2 w-2 rounded-full ${
-                playing ? "blink-dot bg-[#5ee08a]" : "bg-[#7f93b0]"
-              }`}
-            />
+          <div className="pointer-events-auto flex items-center gap-2">
+            {installEvt && (
+              <button
+                onClick={async () => {
+                  await installEvt.prompt();
+                  const choice = await installEvt.userChoice;
+                  if (choice.outcome === "accepted") setInstallEvt(null);
+                }}
+                className="panel-card hidden items-center gap-2 rounded-full px-4 py-2 text-xs font-bold tracking-widest text-[#ffcf6b] transition-all duration-300 hover:bg-[#f5b942]/10 hover:shadow-[0_0_18px_rgba(245,185,66,0.3)] active:scale-95 sm:flex"
+                style={{ borderColor: "rgba(245,185,66,0.5)" }}
+              >
+                <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                  <path
+                    d="M7 1v8M3.5 5.5 7 9l3.5-3.5M1.5 12.5h11"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                安装 App
+              </button>
+            )}
+            <div className="panel-card flex items-center gap-2.5 rounded-full px-4 py-2">
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  playing ? "blink-dot bg-[#5ee08a]" : "bg-[#7f93b0]"
+                }`}
+              />
             <span className="text-[10px] tracking-[0.25em] text-[#7f93b0]">
               {playing ? "运行中" : "已暂停"}
             </span>
-            <span className="font-display text-xs font-bold text-[#ffcf6b]">
-              T+{formatDays(simDays)}
-            </span>
+              <span className="font-display text-xs font-bold text-[#ffcf6b]">
+                T+{formatDays(simDays)}
+              </span>
+            </div>
           </div>
         </header>
 

@@ -84,9 +84,8 @@ jobs:
       - name: Fix gradle.properties
         run: |
           cd android
-          echo "android.applicationIdSuffix=.dev" >> app/gradle.properties
-          echo "android.versionCode=${VERSION_CODE}" >> app/gradle.properties
-          echo "android.versionName=${VERSION_NAME}" >> app/gradle.properties
+          echo "android.versionCode=${VERSION_CODE}" >> gradle.properties
+          echo "android.versionName=${VERSION_NAME}" >> gradle.properties
           cat app/gradle.properties
 
       - name: Setup JDK 17
@@ -111,7 +110,7 @@ jobs:
       - name: 自动发布到独立版本
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${VERSION_NAME}
+          tag_name: v1.0.${{ github.run_number }}
           name: "太阳系模拟器 v1.0.${{ github.run_number }}"
           body: |
             🎉 **版本号：${VERSION_NAME}**
@@ -130,6 +129,6 @@ jobs:
             
             **覆盖安装提示**：
             如果你安装过旧版本，建议先卸载再安装新版本，或直接覆盖安装。
-          files: out/*.apk
+                    files: out/*.apk
           prerelease: true
           make_latest: true

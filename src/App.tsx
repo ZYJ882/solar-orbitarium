@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import SolarCanvas from "./components/SolarCanvas";
-import SolarCanvas3D from "./components/SolarCanvas3D";
+
+const SolarCanvas3D = lazy(() => import("./components/SolarCanvas3D"));
 import InfoPanel from "./components/InfoPanel";
 import ControlBar from "./components/ControlBar";
 import PlanetNav from "./components/PlanetNav";
@@ -80,16 +81,24 @@ export default function App() {
       {/* ============ 观测台主舞台 ============ */}
       <section className="relative h-[100svh] min-h-[560px] overflow-hidden">
         {viewMode === "3d" ? (
-          <SolarCanvas3D
-            playing={playing}
-            speed={speed}
-            showOrbits={showOrbits}
-            showLabels={showLabels}
-            selectedId={selectedId}
-            onSelect={handleSelect}
-            onTick={handleTick}
-            resetToken={resetToken}
-          />
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center text-sm tracking-[0.2em] text-[#8ea3be]">
+                正在加载 3D 视图…
+              </div>
+            }
+          >
+            <SolarCanvas3D
+              playing={playing}
+              speed={speed}
+              showOrbits={showOrbits}
+              showLabels={showLabels}
+              selectedId={selectedId}
+              onSelect={handleSelect}
+              onTick={handleTick}
+              resetToken={resetToken}
+            />
+          </Suspense>
         ) : (
           <SolarCanvas
             playing={playing}

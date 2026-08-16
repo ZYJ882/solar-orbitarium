@@ -221,19 +221,6 @@ export default function SolarCanvas3D({
       }
     });
 
-    // 创建标签容器
-    const labelContainer = document.createElement("div");
-    labelContainer.style.cssText = `
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      overflow: hidden;
-    `;
-    container.appendChild(labelContainer);
-
     // 事件处理：鼠标拖动旋转视角
     const onMouseDown = (e: MouseEvent) => {
       simRef.current.isDragging = true;
@@ -413,10 +400,9 @@ export default function SolarCanvas3D({
       container.removeEventListener("wheel", onWheel);
       container.removeEventListener("click", onClick);
       
-      if (labelContainer.parentNode) {
-        labelContainer.parentNode.removeChild(labelContainer);
-      }
-      
+      simRef.current.labels.forEach((label) => label.remove());
+      simRef.current.labels.clear();
+
       // 清理 Three.js 资源
       scene.traverse((object) => {
         if ((object as THREE.Mesh).isMesh) {
@@ -442,50 +428,55 @@ export default function SolarCanvas3D({
 
   // 更新轨道显示
   useEffect(() => {
-    const sim = simRef.current;
-    sim.orbitLines.forEach((orbit, id) => {
-      orbit.visible = simRef.current.scene ? true : false;
+    simRef.current.orbitLines.forEach((orbit) => {
+      orbit.visible = showOrbits;
     });
   }, [showOrbits]);
 
-  // 更新标签
+  // 更新标签：仅在需要时创建或删除，动画帧中复用既有 DOM 节点。
   const updateLabels = useCallback((camera: THREE.Camera, canvas: HTMLCanvasElement) => {
     const sim = simRef.current;
     const p = propsRef.current;
-    
-    // 清除旧标签
-    sim.labels.forEach((label) => label.remove());
-    sim.labels.clear();
-    
-    if (!p.showLabels && !p.selectedId) return;
-    
-    const tempDiv = document.createElement("div");
-    
-    // 太阳标签
+    const wanted = new Map<string, { text: string; position: THREE.Vector3; selected: boolean }>();
+
     if (p.showLabels || p.selectedId === "sun") {
-      const label = createLabel(SUN.name, new THREE.Vector3(0, -25, 0), camera, canvas, p.selectedId === "sun");
-      sim.labels.set("sun", label);
+      wanted.set("sun", {
+        text: SUN.name,
+        position: new THREE.Vector3(0, -25, 0),
+        selected: p.selectedId === "sun",
+      });
     }
-    
-    // 行星标签
+
     PLANETS.forEach((pl) => {
-      if (p.showLabels || p.selectedId === pl.id) {
-        const mesh = sim.planetMeshes.get(pl.id);
-        if (mesh) {
-          const label = createLabel(
-            pl.name,
-            new THREE.Vector3(
-              mesh.position.x,
-              mesh.position.y - (mesh.userData.radius as number) - 5,
-              mesh.position.z,
-            ),
-            camera,
-            canvas,
-            p.selectedId === pl.id
-          );
-          sim.labels.set(pl.id, label);
-        }
+      if (!p.showLabels && p.selectedId !== pl.id) return;
+      const mesh = sim.planetMeshes.get(pl.id);
+      if (!mesh) return;
+      wanted.set(pl.id, {
+        text: pl.name,
+        position: new THREE.Vector3(
+          mesh.position.x,
+          mesh.position.y - (mesh.userData.radius as number) - 5,
+          mesh.position.z,
+        ),
+        selected: p.selectedId === pl.id,
+      });
+    });
+
+    sim.labels.forEach((label, id) => {
+      if (!wanted.has(id)) {
+        label.remove();
+        sim.labels.delete(id);
       }
+    });
+
+    wanted.forEach((item, id) => {
+      let label = sim.labels.get(id);
+      if (!label) {
+        label = createLabel(item.text, item.position, camera, canvas, item.selected);
+        sim.labels.set(id, label);
+      }
+      label.style.color = item.selected ? "rgba(255,255,255,0.95)" : "rgba(196,214,238,0.72)";
+      updateLabelPosition(label, item.position, camera, canvas);
     });
   }, []);
 

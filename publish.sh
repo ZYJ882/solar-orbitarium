@@ -4,7 +4,7 @@
 # 用法:  bash publish.sh
 # 前置:  git + GitHub CLI (gh)，脚本会自动检测并给出安装指引
 # 说明:  推送完成后 GitHub Actions 自动编译 APK，
-#        并自动发布到仓库的 Releases「最新构建」页面，无需打标签。
+#        并按版本号自动创建 GitHub Release，无需手动打标签。
 # ============================================================
 set -euo pipefail
 
@@ -65,8 +65,8 @@ else
 fi
 
 echo ""
-echo "✅ 完成！GitHub Actions 正在云端编译 APK（约 5-8 分钟）"
-echo "   编译完成后 APK 会自动发布到 Releases「最新构建」页面："
+echo "✅ 完成！GitHub Actions 正在云端编译 APK。"
+echo "   编译完成后会按版本号自动创建 Release，并附上对应 APK："
 echo ""
 echo "   仓库     https://github.com/${OWNER}/${REPO}"
 echo "   构建进度 https://github.com/${OWNER}/${REPO}/actions"

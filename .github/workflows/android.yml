@@ -119,7 +119,7 @@ jobs:
           cp android/app/build/outputs/apk/release/app-release.apk "out/solar-orbitarium-${VERSION_NAME}.apk"
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.VERSION_NAME }}
           name: "太阳系模拟器 ${{ env.VERSION_NAME }}"

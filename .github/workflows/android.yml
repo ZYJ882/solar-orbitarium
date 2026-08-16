@@ -119,8 +119,8 @@ jobs:
       - name: 自动发布到独立版本
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${VERSION_NAME}
-          name: "太阳系模拟器 ${VERSION_NAME}"
+          tag_name: ${{ env.VERSION_NAME }}
+          name: "太阳系模拟器 ${{ env.VERSION_NAME }}"
           body: |
             🎉 **版本发布：${VERSION_NAME}**
             

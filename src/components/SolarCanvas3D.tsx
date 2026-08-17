@@ -45,6 +45,31 @@ interface Props {
 
 const BASE_DAYS_PER_SEC = 10;
 const TAU = Math.PI * 2;
+// 保持镜头在黄道面上方，避免纵向拖动越过地平线后出现上下颠倒的观察体验。
+const MIN_CAMERA_PITCH = 0.16;
+const MAX_CAMERA_PITCH = 1.23;
+
+// 教学模型采用圆轨道与非线性缩放；保留各行星相对黄道面的真实轨道倾角和升交点方向。
+const ORBIT_TILTS_DEG: Record<string, number> = {
+  mercury: 7.0,
+  venus: 3.39,
+  earth: 0,
+  mars: 1.85,
+  jupiter: 1.3,
+  saturn: 2.49,
+  uranus: 0.77,
+  neptune: 1.77,
+};
+const ASCENDING_NODES_DEG: Record<string, number> = {
+  mercury: 48.3,
+  venus: 76.7,
+  earth: 0,
+  mars: 49.6,
+  jupiter: 100.6,
+  saturn: 113.7,
+  uranus: 74.0,
+  neptune: 131.8,
+};
 
 // 轨道参数计算（与 2D 版本一致）
 function orbitT(au: number) {
@@ -92,6 +117,8 @@ export default function SolarCanvas3D({
     lastMouseX: 0,
     lastMouseY: 0,
     lastTouchDistance: 0,
+    dragDistance: 0,
+    didDrag: false,
     cameraAngleH: 0, // 水平角度
     cameraAngleV: 0.4, // 垂直角度
     cameraDistance: 390,
@@ -228,7 +255,7 @@ export default function SolarCanvas3D({
 
       // 为土星添加带有卡西尼缝隙感的多层环系，而不是一块平面的粗圆环。
       if (pl.id === "saturn") {
-        const ringGroup = createSaturnRings(radius, false);
+        const ringGroup = createSaturnRings(radius, isLowPowerDevice);
         mesh.add(ringGroup);
       }
 
@@ -253,11 +280,7 @@ export default function SolarCanvas3D({
         const orbitSegments = 96;
         for (let i = 0; i <= orbitSegments; i++) {
           const angle = (i / orbitSegments) * TAU;
-          points.push(new Vector3(
-            Math.cos(angle) * orbitRadius,
-            0,
-            Math.sin(angle) * orbitRadius
-          ));
+          points.push(getOrbitPosition(orbitRadius, angle, pl.id));
         }
         const orbitGeometry = new BufferGeometry().setFromPoints(points);
         const orbitMaterial = new LineBasicMaterial({
@@ -266,7 +289,6 @@ export default function SolarCanvas3D({
           opacity: 0.35,
         });
         const orbit = new Line(orbitGeometry, orbitMaterial);
-        orbit.rotation.x = Math.PI / 2;
         orbit.visible = showOrbits;
         scene.add(orbit);
         simRef.current.orbitLines.set(pl.id, orbit);
@@ -276,6 +298,8 @@ export default function SolarCanvas3D({
     // 事件处理：鼠标拖动旋转视角
     const onMouseDown = (e: MouseEvent) => {
       simRef.current.isDragging = true;
+      simRef.current.dragDistance = 0;
+      simRef.current.didDrag = false;
       simRef.current.lastMouseX = e.clientX;
       simRef.current.lastMouseY = e.clientY;
     };
@@ -286,11 +310,10 @@ export default function SolarCanvas3D({
       const deltaX = e.clientX - simRef.current.lastMouseX;
       const deltaY = e.clientY - simRef.current.lastMouseY;
 
-      simRef.current.cameraAngleH -= deltaX * 0.005;
-      simRef.current.cameraAngleV -= deltaY * 0.005;
-
-      // 限制垂直角度
-      simRef.current.cameraAngleV = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, simRef.current.cameraAngleV));
+      simRef.current.dragDistance += Math.abs(deltaX) + Math.abs(deltaY);
+      simRef.current.didDrag = simRef.current.dragDistance > 5;
+      simRef.current.cameraAngleH = normalizeAngle(simRef.current.cameraAngleH - deltaX * 0.005);
+      simRef.current.cameraAngleV = clampCameraPitch(simRef.current.cameraAngleV - deltaY * 0.005);
 
       simRef.current.lastMouseX = e.clientX;
       simRef.current.lastMouseY = e.clientY;
@@ -310,6 +333,7 @@ export default function SolarCanvas3D({
     };
 
     const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
       simRef.current.cameraDistance += e.deltaY * 0.1;
       simRef.current.cameraDistance = Math.max(50, Math.min(800, simRef.current.cameraDistance));
 
@@ -328,11 +352,14 @@ export default function SolarCanvas3D({
       if (e.touches.length === 1) {
         // 单指拖动
         simRef.current.isDragging = true;
+        simRef.current.dragDistance = 0;
+        simRef.current.didDrag = false;
         simRef.current.lastMouseX = e.touches[0].clientX;
         simRef.current.lastMouseY = e.touches[0].clientY;
       } else if (e.touches.length === 2) {
         // 双指捏合缩放
         simRef.current.isDragging = false;
+        simRef.current.didDrag = true;
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         simRef.current.lastTouchDistance = Math.sqrt(dx * dx + dy * dy);
@@ -347,11 +374,10 @@ export default function SolarCanvas3D({
         const deltaX = e.touches[0].clientX - simRef.current.lastMouseX;
         const deltaY = e.touches[0].clientY - simRef.current.lastMouseY;
 
-        simRef.current.cameraAngleH -= deltaX * 0.005;
-        simRef.current.cameraAngleV -= deltaY * 0.005;
-
-        // 限制垂直角度
-        simRef.current.cameraAngleV = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, simRef.current.cameraAngleV));
+        simRef.current.dragDistance += Math.abs(deltaX) + Math.abs(deltaY);
+        simRef.current.didDrag = simRef.current.dragDistance > 5;
+        simRef.current.cameraAngleH = normalizeAngle(simRef.current.cameraAngleH - deltaX * 0.005);
+        simRef.current.cameraAngleV = clampCameraPitch(simRef.current.cameraAngleV - deltaY * 0.005);
 
         simRef.current.lastMouseX = e.touches[0].clientX;
         simRef.current.lastMouseY = e.touches[0].clientY;
@@ -389,14 +415,26 @@ export default function SolarCanvas3D({
       }
     };
 
-    const onTouchEnd = () => {
+    const onTouchEnd = (e: TouchEvent) => {
+      // 双指缩放后保留一根手指时，立即平滑切回单指旋转，而不是失去控制。
+      if (e.touches.length === 1) {
+        simRef.current.isDragging = true;
+        simRef.current.lastTouchDistance = 0;
+        simRef.current.lastMouseX = e.touches[0].clientX;
+        simRef.current.lastMouseY = e.touches[0].clientY;
+        return;
+      }
       simRef.current.isDragging = false;
       simRef.current.lastTouchDistance = 0;
     };
 
     // 点击选择行星
     const onClick = (e: MouseEvent) => {
-      if (simRef.current.isDragging) return;
+      // 拖动结束后浏览器仍会派发 click；跳过它，避免旋转镜头时误选天体。
+      if (simRef.current.isDragging || simRef.current.didDrag) {
+        simRef.current.didDrag = false;
+        return;
+      }
 
       const rect = renderer.domElement.getBoundingClientRect();
       simRef.current.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -434,7 +472,7 @@ export default function SolarCanvas3D({
     container.addEventListener("mousedown", onMouseDown);
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
-    container.addEventListener("wheel", onWheel, { passive: true });
+    container.addEventListener("wheel", onWheel, { passive: false });
     container.addEventListener("click", onClick);
 
     // 触摸事件监听（手机控制）
@@ -491,8 +529,7 @@ export default function SolarCanvas3D({
         const baseTheta = index * 2.399 + 0.7;
         const theta = baseTheta + (TAU * sim.days) / pl.periodDays;
 
-        mesh.position.x = Math.cos(theta) * orbitRadius;
-        mesh.position.z = Math.sin(theta) * orbitRadius;
+        mesh.position.copy(getOrbitPosition(orbitRadius, theta, pl.id));
 
         // 更新月球位置
         const moon = mesh.children.find((c) => c.userData.isMoon);
@@ -645,6 +682,29 @@ export default function SolarCanvas3D({
 }
 
 // 更新相机位置
+function clampCameraPitch(angle: number) {
+  return Math.max(MIN_CAMERA_PITCH, Math.min(MAX_CAMERA_PITCH, angle));
+}
+
+function normalizeAngle(angle: number) {
+  return ((angle + Math.PI) % TAU + TAU) % TAU - Math.PI;
+}
+
+function getOrbitPosition(radius: number, theta: number, planetId: string) {
+  const node = (ASCENDING_NODES_DEG[planetId] ?? 0) * Math.PI / 180;
+  const tilt = (ORBIT_TILTS_DEG[planetId] ?? 0) * Math.PI / 180;
+  const planarX = Math.cos(theta) * radius;
+  const planarZ = Math.sin(theta) * radius;
+  const nodeX = planarX * Math.cos(node) - planarZ * Math.sin(node);
+  const nodeZ = planarX * Math.sin(node) + planarZ * Math.cos(node);
+
+  return new Vector3(
+    nodeX,
+    nodeZ * Math.sin(tilt),
+    nodeZ * Math.cos(tilt),
+  );
+}
+
 function updateCameraPosition(
   camera: Camera,
   angleH: number,
@@ -661,8 +721,7 @@ function updateCameraPosition(
 // 创建精细化土星环：使用多个同心带模拟主要环区与卡西尼缝隙。
 function createSaturnRings(radius: number, isLowPowerDevice: boolean) {
   const group = new Group();
-  // 增加分段数使环更平滑细致
-  const segments = 128;
+  const segments = isLowPowerDevice ? 96 : 128;
   const bands = [
     { inner: 1.18, outer: 1.38, color: 0xb79b70, opacity: 0.78 },
     { inner: 1.44, outer: 1.60, color: 0xe0c99a, opacity: 0.88 },
@@ -686,7 +745,8 @@ function createSaturnRings(radius: number, isLowPowerDevice: boolean) {
         depthWrite: false,
       }),
     );
-    ring.rotation.x = Math.PI / 2.5;
+    // RingGeometry 原始平面为 XY；旋转到黄道面后再施加土星约 26.7° 的轴倾角。
+    ring.rotation.x = Math.PI / 2 - 26.7 * Math.PI / 180;
     ring.rotation.z = 0.06;
     group.add(ring);
   });

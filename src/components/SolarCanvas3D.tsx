@@ -313,7 +313,7 @@ export default function SolarCanvas3D({
       simRef.current.dragDistance += Math.abs(deltaX) + Math.abs(deltaY);
       simRef.current.didDrag = simRef.current.dragDistance > 5;
       simRef.current.cameraAngleH = normalizeAngle(simRef.current.cameraAngleH - deltaX * 0.005);
-      simRef.current.cameraAngleV = clampCameraPitch(simRef.current.cameraAngleV - deltaY * 0.005);
+      simRef.current.cameraAngleV = clampCameraPitch(simRef.current.cameraAngleV + deltaY * 0.005);
 
       simRef.current.lastMouseX = e.clientX;
       simRef.current.lastMouseY = e.clientY;
@@ -377,7 +377,7 @@ export default function SolarCanvas3D({
         simRef.current.dragDistance += Math.abs(deltaX) + Math.abs(deltaY);
         simRef.current.didDrag = simRef.current.dragDistance > 5;
         simRef.current.cameraAngleH = normalizeAngle(simRef.current.cameraAngleH - deltaX * 0.005);
-        simRef.current.cameraAngleV = clampCameraPitch(simRef.current.cameraAngleV - deltaY * 0.005);
+        simRef.current.cameraAngleV = clampCameraPitch(simRef.current.cameraAngleV + deltaY * 0.005);
 
         simRef.current.lastMouseX = e.touches[0].clientX;
         simRef.current.lastMouseY = e.touches[0].clientY;

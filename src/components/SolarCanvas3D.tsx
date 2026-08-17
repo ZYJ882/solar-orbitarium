@@ -125,25 +125,23 @@ export default function SolarCanvas3D({
     updateCameraPosition(camera, simRef.current.cameraAngleH, simRef.current.cameraAngleV, simRef.current.cameraDistance);
     simRef.current.camera = camera;
 
-    // 创建渲染器
-    const isLowPowerDevice =
-      window.matchMedia("(pointer: coarse)").matches ||
-      (navigator.hardwareConcurrency ?? 8) <= 4;
-    const renderer = new WebGLRenderer({ antialias: !isLowPowerDevice, alpha: true });
+    // 创建渲染器 - 始终启用抗锯齿以获得更清晰的图像
+    const renderer = new WebGLRenderer({ antialias: true, alpha: true });
     renderer.outputColorSpace = SRGBColorSpace;
     renderer.toneMapping = ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.12;
+    renderer.toneMappingExposure = 1.2;
     renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isLowPowerDevice ? 1.25 : 1.5));
+    // 使用更高的像素比率以获得更清晰的渲染效果
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     container.appendChild(renderer.domElement);
     simRef.current.renderer = renderer;
 
     // 创建星空背景
     createStarfield(scene);
 
-    // 创建太阳
-    const sunSegments = isLowPowerDevice ? 16 : 24;
-    const planetSegments = isLowPowerDevice ? 12 : 20;
+    // 创建太阳 - 增加分段数使球体更圆滑
+    const sunSegments = 48;
+    const planetSegments = 32;
     const sunGeometry = new SphereGeometry(8.5, sunSegments, sunSegments);
     const sunMaterial = new MeshBasicMaterial({
       color: 0xffaa00,
@@ -203,19 +201,19 @@ export default function SolarCanvas3D({
     const ambientLight = new AmbientLight(0x6680a6, 1.35);
     scene.add(ambientLight);
 
-    // 创建行星
+    // 创建行星 - 使用更高精度几何体和更细致的材质
     PLANETS.forEach((pl, index) => {
       const radius = displayRadius(pl.diameterKm) * 0.5;
       const geometry = new SphereGeometry(radius, planetSegments, planetSegments);
 
-      // 为不同天体保留哑光行星材质，避免在小屏幕上出现塑料高光。
+      // 为不同天体创建更精细的材质，增加表面细节感
       const material = new MeshStandardMaterial({
         color: pl.color,
-        roughness: pl.id === "earth" ? 0.58 : 0.82,
-        metalness: 0,
-        // 仅保留少量自发光，作为移动端低亮度屏幕下的可读性兜底。
+        roughness: pl.id === "earth" ? 0.45 : 0.72,
+        metalness: pl.id === "earth" ? 0.08 : 0,
+        // 适当增加自发光，提升暗部细节可见度
         emissive: new Color(pl.color),
-        emissiveIntensity: 0.14,
+        emissiveIntensity: pl.id === "earth" ? 0.06 : 0.12,
       });
 
       const mesh = new Mesh(geometry, material);
@@ -225,29 +223,29 @@ export default function SolarCanvas3D({
 
       // 为土星添加带有卡西尼缝隙感的多层环系，而不是一块平面的粗圆环。
       if (pl.id === "saturn") {
-        const ringGroup = createSaturnRings(radius, isLowPowerDevice);
+        const ringGroup = createSaturnRings(radius, false);
         mesh.add(ringGroup);
       }
 
-      // 为地球添加月球
+      // 为地球添加月球 - 增加月球精度
       if (pl.id === "earth") {
-        const moonGeometry = new SphereGeometry(radius * 0.27, 12, 12);
+        const moonGeometry = new SphereGeometry(radius * 0.27, 20, 20);
         const moonMaterial = new MeshStandardMaterial({
           color: 0xc9ccd4,
           emissive: new Color(0x566174),
-          emissiveIntensity: 0.12,
-          roughness: 0.9,
+          emissiveIntensity: 0.08,
+          roughness: 0.85,
         });
         const moon = new Mesh(moonGeometry, moonMaterial);
         moon.userData.isMoon = true;
         mesh.add(moon);
       }
 
-      // 创建轨道线
+      // 创建轨道线 - 增加分段数使轨道更平滑
       {
         const orbitRadius = orbitT(pl.au) * 100;
         const points = [];
-        const orbitSegments = isLowPowerDevice ? 40 : 56;
+        const orbitSegments = 96;
         for (let i = 0; i <= orbitSegments; i++) {
           const angle = (i / orbitSegments) * TAU;
           points.push(new Vector3(
@@ -260,7 +258,7 @@ export default function SolarCanvas3D({
         const orbitMaterial = new LineBasicMaterial({
           color: 0x94aac8,
           transparent: true,
-          opacity: 0.3,
+          opacity: 0.35,
         });
         const orbit = new Line(orbitGeometry, orbitMaterial);
         orbit.rotation.x = Math.PI / 2;
@@ -658,7 +656,8 @@ function updateCameraPosition(
 // 创建精细化土星环：使用多个同心带模拟主要环区与卡西尼缝隙。
 function createSaturnRings(radius: number, isLowPowerDevice: boolean) {
   const group = new Group();
-  const segments = isLowPowerDevice ? 48 : 80;
+  // 增加分段数使环更平滑细致
+  const segments = 128;
   const bands = [
     { inner: 1.18, outer: 1.38, color: 0xb79b70, opacity: 0.78 },
     { inner: 1.44, outer: 1.60, color: 0xe0c99a, opacity: 0.88 },
@@ -672,10 +671,10 @@ function createSaturnRings(radius: number, isLowPowerDevice: boolean) {
       new RingGeometry(radius * inner, radius * outer, segments),
       new MeshStandardMaterial({
         color,
-        roughness: 0.9,
+        roughness: 0.85,
         metalness: 0,
         emissive: new Color(color),
-        emissiveIntensity: 0.08,
+        emissiveIntensity: 0.1,
         side: DoubleSide,
         transparent: true,
         opacity,
@@ -690,15 +689,17 @@ function createSaturnRings(radius: number, isLowPowerDevice: boolean) {
   return group;
 }
 
-// 创建星空背景
+// 创建星空背景 - 增加星星数量和大小变化，使背景更丰富细致
 function createStarfield(scene: Scene) {
   const starGeometry = new BufferGeometry();
-  const starCount = window.matchMedia("(pointer: coarse)").matches ? 650 : 1100;
+  // 增加星星数量，创造更密集的星空
+  const starCount = 2000;
   const positions = new Float32Array(starCount * 3);
   const colors = new Float32Array(starCount * 3);
+  const sizes = new Float32Array(starCount);
 
   for (let i = 0; i < starCount * 3; i += 3) {
-    const radius = 800 + Math.random() * 400;
+    const radius = 800 + Math.random() * 600;
     const theta = Math.random() * TAU;
     const phi = Math.acos(2 * Math.random() - 1);
 
@@ -706,34 +707,49 @@ function createStarfield(scene: Scene) {
     positions[i + 1] = radius * Math.sin(phi) * Math.sin(theta);
     positions[i + 2] = radius * Math.cos(phi);
 
-    // 星星颜色变化
+    // 星星颜色变化 - 增加更多颜色种类
     const colorChoice = Math.random();
-    if (colorChoice < 0.7) {
+    if (colorChoice < 0.65) {
       // 白色
       colors[i] = 1;
       colors[i + 1] = 1;
       colors[i + 2] = 1;
-    } else if (colorChoice < 0.85) {
+    } else if (colorChoice < 0.80) {
       // 蓝色
-      colors[i] = 0.7;
-      colors[i + 1] = 0.8;
+      colors[i] = 0.65;
+      colors[i + 1] = 0.75;
       colors[i + 2] = 1;
-    } else {
+    } else if (colorChoice < 0.90) {
       // 黄色
       colors[i] = 1;
+      colors[i + 1] = 0.92;
+      colors[i + 2] = 0.75;
+    } else if (colorChoice < 0.96) {
+      // 淡红色
+      colors[i] = 1;
+      colors[i + 1] = 0.82;
+      colors[i + 2] = 0.78;
+    } else {
+      // 青蓝色
+      colors[i] = 0.75;
       colors[i + 1] = 0.9;
-      colors[i + 2] = 0.7;
+      colors[i + 2] = 1;
     }
+    
+    // 星星大小变化
+    sizes[i / 3] = 1.0 + Math.random() * 2.5;
   }
 
   starGeometry.setAttribute("position", new BufferAttribute(positions, 3));
   starGeometry.setAttribute("color", new BufferAttribute(colors, 3));
+  starGeometry.setAttribute("size", new BufferAttribute(sizes, 1));
 
   const starMaterial = new PointsMaterial({
-    size: 1.5,
+    size: 2.0,
     vertexColors: true,
     transparent: true,
-    opacity: 0.8,
+    opacity: 0.85,
+    sizeAttenuation: true,
   });
 
   const stars = new Points(starGeometry, starMaterial);

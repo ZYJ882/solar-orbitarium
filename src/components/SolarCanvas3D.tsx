@@ -8,6 +8,7 @@ import {
   BufferGeometry,
   Camera,
   Color,
+  DirectionalLight,
   DoubleSide,
   Group,
   Line,
@@ -189,13 +190,17 @@ export default function SolarCanvas3D({
     scene.add(sunMesh);
     simRef.current.sunMesh = sunMesh;
 
-    // 添加点光源（太阳发光）
-    const sunLight = new PointLight(0xffffff, 2, 500);
+    // 使用不依赖距离的方向光 + 受控点光源，避免手机端远处行星因物理衰减变黑。
+    const sunLight = new PointLight(0xffffff, 360, 0, 2);
     sunLight.position.set(0, 0, 0);
     scene.add(sunLight);
 
-    // 添加环境光
-    const ambientLight = new AmbientLight(0x333333);
+    const fillLight = new DirectionalLight(0xb8d6ff, 1.8);
+    fillLight.position.set(-120, 90, 140);
+    scene.add(fillLight);
+
+    // 柔和环境光负责保留行星背光面的轮廓和颜色。
+    const ambientLight = new AmbientLight(0x6680a6, 1.35);
     scene.add(ambientLight);
 
     // 创建行星
@@ -208,6 +213,9 @@ export default function SolarCanvas3D({
         color: pl.color,
         roughness: pl.id === "earth" ? 0.58 : 0.82,
         metalness: 0,
+        // 仅保留少量自发光，作为移动端低亮度屏幕下的可读性兜底。
+        emissive: new Color(pl.color),
+        emissiveIntensity: 0.14,
       });
 
       const mesh = new Mesh(geometry, material);
@@ -224,7 +232,12 @@ export default function SolarCanvas3D({
       // 为地球添加月球
       if (pl.id === "earth") {
         const moonGeometry = new SphereGeometry(radius * 0.27, 12, 12);
-        const moonMaterial = new MeshStandardMaterial({ color: 0xc9ccd4 });
+        const moonMaterial = new MeshStandardMaterial({
+          color: 0xc9ccd4,
+          emissive: new Color(0x566174),
+          emissiveIntensity: 0.12,
+          roughness: 0.9,
+        });
         const moon = new Mesh(moonGeometry, moonMaterial);
         moon.userData.isMoon = true;
         mesh.add(moon);
@@ -661,6 +674,8 @@ function createSaturnRings(radius: number, isLowPowerDevice: boolean) {
         color,
         roughness: 0.9,
         metalness: 0,
+        emissive: new Color(color),
+        emissiveIntensity: 0.08,
         side: DoubleSide,
         transparent: true,
         opacity,

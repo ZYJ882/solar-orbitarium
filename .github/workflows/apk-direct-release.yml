@@ -1,0 +1,52 @@
+name: Publish Uploaded APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'incoming/*.apk'
+  workflow_dispatch:
+    inputs:
+      apk_path:
+        description: 'APK path inside the repository, for example incoming/app.apk'
+        required: true
+        type: string
+      version_tag:
+        description: 'Release tag, for example v1.0.1'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Select APK
+        id: apk
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="${{ inputs.apk_path }}"
+          if [ -z "$apk" ]; then apk="$(ls -t incoming/*.apk | head -n 1)"; fi
+          test -f "$apk"
+          echo "path=$apk" >> "$GITHUB_OUTPUT"
+      - name: Calculate version
+        id: version
+        shell: bash
+        run: |
+          tag="${{ inputs.version_tag }}"
+          if [ -z "$tag" ]; then tag="apk-v1.0.${GITHUB_RUN_NUMBER}"; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: '${{ github.event.repository.name }} ${{ steps.version.outputs.tag }}'
+          body_path: RELEASE_NOTES.md
+          files: ${{ steps.apk.outputs.path }}
+          fail_on_unmatched_files: true
+          make_latest: true

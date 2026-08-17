@@ -1,0 +1,124 @@
+name: Release from Source Archive
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'incoming/*.zip'
+  workflow_dispatch:
+    inputs:
+      source_zip:
+        description: 'Source ZIP path in the repository, for example incoming/source.zip'
+        required: true
+        type: string
+      version_tag:
+        description: 'Optional release tag, for example v1.0.40'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    env:
+      VERSION_CODE: ${{ github.run_number }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Resolve source archive
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="${{ inputs.source_zip }}"
+          if [ -z "$archive" ]; then archive="$(ls -t incoming/*.zip | head -n 1)"; fi
+          test -f "$archive"
+          mkdir -p "$RUNNER_TEMP/source"
+          unzip -q "$archive" -d "$RUNNER_TEMP/source"
+          project_dir="$(find "$RUNNER_TEMP/source" -maxdepth 5 -name package.json -type f | head -n 1 | xargs -r dirname)"
+          test -n "$project_dir"
+          echo "project_dir=$project_dir" >> "$GITHUB_OUTPUT"
+      - name: Calculate version
+        id: version
+        shell: bash
+        run: |
+          tag="${{ inputs.version_tag }}"
+          if [ -z "$tag" ]; then tag="archive-v1.0.${GITHUB_RUN_NUMBER}"; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "android_version=${tag#v}" >> "$GITHUB_OUTPUT"
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ${{ steps.source.outputs.project_dir }}/package-lock.json
+      - name: Install and check web project
+        working-directory: ${{ steps.source.outputs.project_dir }}
+        run: |
+          npm ci
+          npm run check
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Add and sync Android platform
+        working-directory: ${{ steps.source.outputs.project_dir }}
+        run: |
+          npx cap add android
+          npx cap sync android
+          if [ -f public/icons/app-icon.png ]; then
+            mkdir -p android/app/src/main/res/drawable
+            cp public/icons/app-icon.png android/app/src/main/res/drawable/app_icon.png
+            sed -i 's#@mipmap/ic_launcher_round#@drawable/app_icon#g; s#@mipmap/ic_launcher#@drawable/app_icon#g' android/app/src/main/AndroidManifest.xml
+          fi
+          sed -i -E "s/versionCode[[:space:]]+[0-9]+/versionCode ${VERSION_CODE}/" android/app/build.gradle
+          sed -i -E "s/versionName[[:space:]]+\"[^\"]+\"/versionName \"${{ steps.version.outputs.android_version }}\"/" android/app/build.gradle
+      - name: Configure release signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        working-directory: ${{ steps.source.outputs.project_dir }}
+        run: |
+          test -n "$KEYSTORE_BASE64" || { echo 'ANDROID_KEYSTORE_BASE64 is not configured'; exit 1; }
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.jks
+          cat <<'EOF' >> android/app/build.gradle
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file('release.jks')
+                      storePassword System.getenv('RELEASE_STORE_PASSWORD')
+                      keyAlias System.getenv('RELEASE_KEY_ALIAS')
+                      keyPassword System.getenv('RELEASE_KEY_PASSWORD')
+                  }
+              }
+              buildTypes { release { signingConfig signingConfigs.release } }
+          }
+          EOF
+      - name: Build signed APK
+        id: build
+        working-directory: ${{ steps.source.outputs.project_dir }}/android
+        env:
+          RELEASE_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+          apk="app/build/outputs/apk/release/app-release.apk"
+          test -f "$apk"
+          cp "$apk" "$RUNNER_TEMP/solar-orbitarium-${{ steps.version.outputs.tag }}.apk"
+          echo "apk=$RUNNER_TEMP/solar-orbitarium-${{ steps.version.outputs.tag }}.apk" >> "$GITHUB_OUTPUT"
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: '太阳系模拟器 ${{ steps.version.outputs.tag }}'
+          body_path: RELEASE_NOTES.md
+          files: ${{ steps.build.outputs.apk }}
+          fail_on_unmatched_files: true
+          make_latest: true

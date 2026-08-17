@@ -12,7 +12,6 @@ on:
       - "index.html"
       - "tsconfig.json"
       - "vite.config.js"
-      - ".github/workflows/android.yml"
   workflow_dispatch:
 
 permissions:
@@ -146,13 +145,7 @@ jobs:
         with:
           tag_name: ${{ env.VERSION_NAME }}
           name: "太阳系模拟器 ${{ env.VERSION_NAME }}"
-          body: |
-            ## 本次更新
-
-            - 更新交互式太阳系演示与 Android 安装包。
-            - 详细变更请查看本次提交记录。
-
-            当前版本：`${{ env.VERSION_NAME }}`
+          body_path: RELEASE_NOTES.md
           files: out/*.apk
           prerelease: false
           make_latest: true

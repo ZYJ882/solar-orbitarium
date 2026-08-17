@@ -24,6 +24,7 @@ concurrency:
 
 env:
   VERSION_CODE: ${{ github.run_number }}
+  ANDROID_VERSION_NAME: "1.0.${{ github.run_number }}"
   VERSION_NAME: "v1.0.${{ github.run_number }}"
   EXPECTED_CERT_SHA256: "D2:8B:32:65:A3:8A:04:53:28:05:0E:A1:59:51:2F:67:11:11:20:1A:89:3D:77:D6:C7:3D:BF:FF:2D:32:D2:47"
 
@@ -61,10 +62,11 @@ jobs:
 
       - name: Set Android version
         run: |
-          {
-            echo "android.versionCode=${VERSION_CODE}"
-            echo "android.versionName=${VERSION_NAME}"
-          } >> android/gradle.properties
+          # Capacitor 8 模板在 app/build.gradle 中直接声明版本字段；gradle.properties 的自定义属性不会自动生效。
+          sed -i -E "s/versionCode[[:space:]]+[0-9]+/versionCode ${VERSION_CODE}/" android/app/build.gradle
+          sed -i -E "s/versionName[[:space:]]+\"[^\"]+\"/versionName \"${ANDROID_VERSION_NAME}\"/" android/app/build.gradle
+          grep -q "versionCode ${VERSION_CODE}" android/app/build.gradle
+          grep -q "versionName \"${ANDROID_VERSION_NAME}\"" android/app/build.gradle
 
       - name: Configure release signing
         env:
@@ -112,11 +114,19 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
 
-      - name: Verify signing certificate
+      - name: Verify APK version and signing certificate
         run: |
           APK="android/app/build/outputs/apk/release/app-release.apk"
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
           test -n "$SDK_ROOT" || { echo "Android SDK path is not configured"; exit 1; }
+          AAPT="$(find "$SDK_ROOT/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -n "$AAPT" || { echo "aapt was not found"; exit 1; }
+          VERSION_LINE="$("$AAPT" dump badging "$APK" | head -n 1)"
+          APK_VERSION_CODE="$(echo "$VERSION_LINE" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
+          APK_VERSION_NAME="$(echo "$VERSION_LINE" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")"
+          echo "APK versionCode=${APK_VERSION_CODE}, versionName=${APK_VERSION_NAME}"
+          test "$APK_VERSION_CODE" = "$VERSION_CODE" || { echo "Unexpected APK versionCode"; exit 1; }
+          test "$APK_VERSION_NAME" = "$ANDROID_VERSION_NAME" || { echo "Unexpected APK versionName"; exit 1; }
           APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -n "$APKSIGNER" || { echo "apksigner was not found"; exit 1; }
           FINGERPRINT="$("$APKSIGNER" verify --print-certs "$APK" | awk '/certificate SHA-256 digest:/{sub(/^.*certificate SHA-256 digest: /, ""); print; exit}')"

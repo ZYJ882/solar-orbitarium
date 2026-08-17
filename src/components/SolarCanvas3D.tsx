@@ -86,6 +86,7 @@ export default function SolarCanvas3D({
     isDragging: false,
     lastMouseX: 0,
     lastMouseY: 0,
+    lastTouchDistance: 0,
     cameraAngleH: 0, // 水平角度
     cameraAngleV: 0.4, // 垂直角度
     cameraDistance: 350,
@@ -303,6 +304,77 @@ export default function SolarCanvas3D({
       }
     };
 
+    // 触摸事件处理（手机控制）
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        // 单指拖动
+        simRef.current.isDragging = true;
+        simRef.current.lastMouseX = e.touches[0].clientX;
+        simRef.current.lastMouseY = e.touches[0].clientY;
+      } else if (e.touches.length === 2) {
+        // 双指捏合缩放
+        simRef.current.isDragging = false;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        simRef.current.lastTouchDistance = Math.sqrt(dx * dx + dy * dy);
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      
+      if (e.touches.length === 1 && simRef.current.isDragging) {
+        // 单指拖动旋转
+        const deltaX = e.touches[0].clientX - simRef.current.lastMouseX;
+        const deltaY = e.touches[0].clientY - simRef.current.lastMouseY;
+        
+        simRef.current.cameraAngleH -= deltaX * 0.005;
+        simRef.current.cameraAngleV -= deltaY * 0.005;
+        
+        // 限制垂直角度
+        simRef.current.cameraAngleV = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, simRef.current.cameraAngleV));
+        
+        simRef.current.lastMouseX = e.touches[0].clientX;
+        simRef.current.lastMouseY = e.touches[0].clientY;
+        
+        if (simRef.current.camera) {
+          updateCameraPosition(
+            simRef.current.camera,
+            simRef.current.cameraAngleH,
+            simRef.current.cameraAngleV,
+            simRef.current.cameraDistance
+          );
+        }
+      } else if (e.touches.length === 2) {
+        // 双指捏合缩放
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const currentDistance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (simRef.current.lastTouchDistance > 0) {
+          const delta = currentDistance - simRef.current.lastTouchDistance;
+          simRef.current.cameraDistance -= delta * 0.5;
+          simRef.current.cameraDistance = Math.max(50, Math.min(800, simRef.current.cameraDistance));
+          
+          if (simRef.current.camera) {
+            updateCameraPosition(
+              simRef.current.camera,
+              simRef.current.cameraAngleH,
+              simRef.current.cameraAngleV,
+              simRef.current.cameraDistance
+            );
+          }
+        }
+        
+        simRef.current.lastTouchDistance = currentDistance;
+      }
+    };
+
+    const onTouchEnd = () => {
+      simRef.current.isDragging = false;
+      simRef.current.lastTouchDistance = 0;
+    };
+
     // 点击选择行星
     const onClick = (e: MouseEvent) => {
       if (simRef.current.isDragging) return;
@@ -345,6 +417,12 @@ export default function SolarCanvas3D({
     window.addEventListener("mouseup", onMouseUp);
     container.addEventListener("wheel", onWheel, { passive: true });
     container.addEventListener("click", onClick);
+    
+    // 触摸事件监听（手机控制）
+    container.addEventListener("touchstart", onTouchStart, { passive: false });
+    container.addEventListener("touchmove", onTouchMove, { passive: false });
+    container.addEventListener("touchend", onTouchEnd);
+    container.addEventListener("touchcancel", onTouchEnd);
 
     // 处理窗口大小变化
     const handleResize = () => {
@@ -448,6 +526,10 @@ export default function SolarCanvas3D({
       document.removeEventListener("visibilitychange", onVisibilityChange);
       container.removeEventListener("wheel", onWheel);
       container.removeEventListener("click", onClick);
+      container.removeEventListener("touchstart", onTouchStart);
+      container.removeEventListener("touchmove", onTouchMove);
+      container.removeEventListener("touchend", onTouchEnd);
+      container.removeEventListener("touchcancel", onTouchEnd);
       
       simRef.current.labels.forEach((label) => label.remove());
       simRef.current.labels.clear();
@@ -537,6 +619,7 @@ export default function SolarCanvas3D({
         height: "100%",
         position: "relative",
         cursor: simRef.current.isDragging ? "grabbing" : "grab",
+        touchAction: "none", // 禁止浏览器默认触摸行为
       }}
     />
   );

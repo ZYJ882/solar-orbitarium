@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
 import {
+  ACESFilmicToneMapping,
   AdditiveBlending,
   AmbientLight,
   BackSide,
@@ -8,6 +9,7 @@ import {
   Camera,
   Color,
   DoubleSide,
+  Group,
   Line,
   LineBasicMaterial,
   Mesh,
@@ -20,6 +22,7 @@ import {
   Raycaster,
   RingGeometry,
   Scene,
+  SRGBColorSpace,
   ShaderMaterial,
   SphereGeometry,
   Vector2,
@@ -54,7 +57,8 @@ function displayRadius(diameterKm: number) {
   const lo = Math.log(4879);
   const hi = Math.log(142984);
   const t = (Math.log(diameterKm) - lo) / (hi - lo);
-  return 4 + 13 * t;
+  // 采用适合手机屏幕的非线性显示比例，避免太阳压住内行星。
+  return 2.6 + 8.8 * t;
 }
 
 export default function SolarCanvas3D({
@@ -89,7 +93,7 @@ export default function SolarCanvas3D({
     lastTouchDistance: 0,
     cameraAngleH: 0, // 水平角度
     cameraAngleV: 0.4, // 垂直角度
-    cameraDistance: 350,
+    cameraDistance: 390,
   });
 
   // 重置模拟时间
@@ -103,17 +107,20 @@ export default function SolarCanvas3D({
     const container = containerRef.current;
     if (!container) return;
 
-    // 创建场景
+    // 创建场景与响应式镜头：手机端留出完整轨道层级，避免太阳和土星环占满画面。
+    const isCompactViewport = container.clientWidth < 560;
     const scene = new Scene();
     simRef.current.scene = scene;
 
     // 创建相机
     const camera = new PerspectiveCamera(
-      60,
+      isCompactViewport ? 48 : 55,
       container.clientWidth / container.clientHeight,
       0.1,
       10000
     );
+    simRef.current.cameraDistance = isCompactViewport ? 470 : 390;
+    simRef.current.cameraAngleV = isCompactViewport ? 0.62 : 0.46;
     updateCameraPosition(camera, simRef.current.cameraAngleH, simRef.current.cameraAngleV, simRef.current.cameraDistance);
     simRef.current.camera = camera;
 
@@ -122,6 +129,9 @@ export default function SolarCanvas3D({
       window.matchMedia("(pointer: coarse)").matches ||
       (navigator.hardwareConcurrency ?? 8) <= 4;
     const renderer = new WebGLRenderer({ antialias: !isLowPowerDevice, alpha: true });
+    renderer.outputColorSpace = SRGBColorSpace;
+    renderer.toneMapping = ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.12;
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isLowPowerDevice ? 1.25 : 1.5));
     container.appendChild(renderer.domElement);
@@ -133,7 +143,7 @@ export default function SolarCanvas3D({
     // 创建太阳
     const sunSegments = isLowPowerDevice ? 16 : 24;
     const planetSegments = isLowPowerDevice ? 12 : 20;
-    const sunGeometry = new SphereGeometry(20, sunSegments, sunSegments);
+    const sunGeometry = new SphereGeometry(8.5, sunSegments, sunSegments);
     const sunMaterial = new MeshBasicMaterial({
       color: 0xffaa00,
     });
@@ -171,7 +181,7 @@ export default function SolarCanvas3D({
     });
 
     const glowMesh = new Mesh(
-      new SphereGeometry(28, sunSegments, sunSegments),
+      new SphereGeometry(13.5, sunSegments, sunSegments),
       glowMaterial
     );
     sunMesh.add(glowMesh);
@@ -193,11 +203,11 @@ export default function SolarCanvas3D({
       const radius = displayRadius(pl.diameterKm) * 0.5;
       const geometry = new SphereGeometry(radius, planetSegments, planetSegments);
 
-      // 创建材质
+      // 为不同天体保留哑光行星材质，避免在小屏幕上出现塑料高光。
       const material = new MeshStandardMaterial({
         color: pl.color,
-        roughness: 0.7,
-        metalness: 0.1,
+        roughness: pl.id === "earth" ? 0.58 : 0.82,
+        metalness: 0,
       });
 
       const mesh = new Mesh(geometry, material);
@@ -205,18 +215,10 @@ export default function SolarCanvas3D({
       scene.add(mesh);
       simRef.current.planetMeshes.set(pl.id, mesh);
 
-      // 为土星添加环
+      // 为土星添加带有卡西尼缝隙感的多层环系，而不是一块平面的粗圆环。
       if (pl.id === "saturn") {
-        const ringGeometry = new RingGeometry(radius * 1.4, radius * 2.2, 64);
-        const ringMaterial = new MeshBasicMaterial({
-          color: 0xe6c98a,
-          side: DoubleSide,
-          transparent: true,
-          opacity: 0.7,
-        });
-        const ring = new Mesh(ringGeometry, ringMaterial);
-        ring.rotation.x = Math.PI / 2.5;
-        mesh.add(ring);
+        const ringGroup = createSaturnRings(radius, isLowPowerDevice);
+        mesh.add(ringGroup);
       }
 
       // 为地球添加月球
@@ -229,7 +231,7 @@ export default function SolarCanvas3D({
       }
 
       // 创建轨道线
-      if (showOrbits) {
+      {
         const orbitRadius = orbitT(pl.au) * 100;
         const points = [];
         const orbitSegments = isLowPowerDevice ? 40 : 56;
@@ -249,6 +251,7 @@ export default function SolarCanvas3D({
         });
         const orbit = new Line(orbitGeometry, orbitMaterial);
         orbit.rotation.x = Math.PI / 2;
+        orbit.visible = showOrbits;
         scene.add(orbit);
         simRef.current.orbitLines.set(pl.id, orbit);
       }
@@ -639,6 +642,39 @@ function updateCameraPosition(
   camera.lookAt(0, 0, 0);
 }
 
+// 创建精细化土星环：使用多个同心带模拟主要环区与卡西尼缝隙。
+function createSaturnRings(radius: number, isLowPowerDevice: boolean) {
+  const group = new Group();
+  const segments = isLowPowerDevice ? 48 : 80;
+  const bands = [
+    { inner: 1.18, outer: 1.38, color: 0xb79b70, opacity: 0.78 },
+    { inner: 1.44, outer: 1.60, color: 0xe0c99a, opacity: 0.88 },
+    { inner: 1.68, outer: 1.84, color: 0x8f765a, opacity: 0.62 },
+    { inner: 1.93, outer: 2.18, color: 0xd2b982, opacity: 0.72 },
+    { inner: 2.24, outer: 2.38, color: 0x77634f, opacity: 0.45 },
+  ];
+
+  bands.forEach(({ inner, outer, color, opacity }) => {
+    const ring = new Mesh(
+      new RingGeometry(radius * inner, radius * outer, segments),
+      new MeshStandardMaterial({
+        color,
+        roughness: 0.9,
+        metalness: 0,
+        side: DoubleSide,
+        transparent: true,
+        opacity,
+        depthWrite: false,
+      }),
+    );
+    ring.rotation.x = Math.PI / 2.5;
+    ring.rotation.z = 0.06;
+    group.add(ring);
+  });
+
+  return group;
+}
+
 // 创建星空背景
 function createStarfield(scene: Scene) {
   const starGeometry = new BufferGeometry();
@@ -702,7 +738,7 @@ function createLabel(
   div.style.cssText = `
     position: absolute;
     font-family: "Noto Sans SC", sans-serif;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 500;
     color: ${isSelected ? "rgba(255,255,255,0.95)" : "rgba(196,214,238,0.72)"};
     text-align: center;

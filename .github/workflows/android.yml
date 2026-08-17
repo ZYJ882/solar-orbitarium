@@ -53,6 +53,12 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      - name: Apply application icon
+        run: |
+          mkdir -p android/app/src/main/res/drawable
+          cp public/icons/app-icon.png android/app/src/main/res/drawable/app_icon.png
+          sed -i 's#@mipmap/ic_launcher_round#@drawable/app_icon#g; s#@mipmap/ic_launcher#@drawable/app_icon#g' android/app/src/main/AndroidManifest.xml
+
       - name: Set Android version
         run: |
           {

@@ -95,6 +95,7 @@ export default function SolarCanvas3D({
     cameraAngleH: 0, // 水平角度
     cameraAngleV: 0.4, // 垂直角度
     cameraDistance: 390,
+    isLowPowerDevice: false,
   });
 
   // 重置模拟时间
@@ -125,7 +126,11 @@ export default function SolarCanvas3D({
     updateCameraPosition(camera, simRef.current.cameraAngleH, simRef.current.cameraAngleV, simRef.current.cameraDistance);
     simRef.current.camera = camera;
 
-    // 创建渲染器 - 始终启用抗锯齿以获得更清晰的图像
+    // 创建渲染器：保留高清抗锯齿，同时记录设备性能等级供几何体和标签降载使用。
+    const isLowPowerDevice =
+      window.matchMedia("(pointer: coarse)").matches ||
+      (navigator.hardwareConcurrency ?? 8) <= 4;
+    simRef.current.isLowPowerDevice = isLowPowerDevice;
     const renderer = new WebGLRenderer({ antialias: true, alpha: true });
     renderer.outputColorSpace = SRGBColorSpace;
     renderer.toneMapping = ACESFilmicToneMapping;
@@ -519,7 +524,7 @@ export default function SolarCanvas3D({
       }
 
       // 标签位置不需要与画面每一帧同步；低功耗设备进一步降低更新频率。
-      const labelUpdateInterval = isLowPowerDevice ? 3 : 2;
+      const labelUpdateInterval = sim.isLowPowerDevice ? 3 : 2;
       if (frameCount % labelUpdateInterval === 0) {
         updateLabels(camera, renderer.domElement);
       }

@@ -116,6 +116,8 @@ export default function SolarCanvas({
     let nextMeteorAt = performance.now() + 2500;
     let raf = 0;
     let last = performance.now();
+    let bgGradient: CanvasGradient | null = null;
+    const nebulaCache = new Map<string, CanvasGradient>();
     const phases = PLANETS.map((_, i) => i * 2.399 + 0.7); // 黄金角错开初始位置
 
     const tints = ["255,255,255", "176,208,255", "255,224,178", "200,240,255"];
@@ -143,6 +145,9 @@ export default function SolarCanvas({
       canvas!.style.width = `${w}px`;
       canvas!.style.height = `${h}px`;
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // CanvasGradient 与当前画布尺寸绑定；尺寸变化时必须重新创建。
+      bgGradient = null;
+      nebulaCache.clear();
       regenerateStars();
     }
 
@@ -153,12 +158,15 @@ export default function SolarCanvas({
     /* ---------- 命中检测 ---------- */
     function pick(px: number, py: number): string | null {
       let best: string | null = null;
-      let bestD = Infinity;
+      let bestD2 = Infinity;
       simRef.current.positions.forEach((p, id) => {
-        const d = Math.hypot(px - p.x, py - p.y);
-        const hit = Math.max(14, p.r + 9);
-        if (d < hit && d < bestD) {
-          bestD = d;
+        const dx = px - p.x;
+        const dy = py - p.y;
+        const d2 = dx * dx + dy * dy;
+        const hitRadius = Math.max(14, p.r + 9);
+        const hitRadius2 = hitRadius * hitRadius;
+        if (d2 < hitRadius2 && d2 < bestD2) {
+          bestD2 = d2;
           best = id;
         }
       });
@@ -224,12 +232,14 @@ export default function SolarCanvas({
       if (p.playing) sim.days += dt * BASE_DAYS_PER_SEC * p.speed;
       const t = now / 1000;
 
-      /* 背景 */
-      const bg = ctx!.createLinearGradient(0, 0, 0, h);
-      bg.addColorStop(0, "#04060d");
-      bg.addColorStop(0.5, "#081020");
-      bg.addColorStop(1, "#05070f");
-      ctx!.fillStyle = bg;
+      /* 背景：缓存与尺寸绑定的渐变，避免每一帧重复分配对象。 */
+      if (!bgGradient) {
+        bgGradient = ctx!.createLinearGradient(0, 0, 0, h);
+        bgGradient.addColorStop(0, "#04060d");
+        bgGradient.addColorStop(0.5, "#081020");
+        bgGradient.addColorStop(1, "#05070f");
+      }
+      ctx!.fillStyle = bgGradient;
       ctx!.fillRect(0, 0, w, h);
 
       /* 星际尘埃（极淡的多色辉光） */
@@ -239,10 +249,15 @@ export default function SolarCanvas({
         [w * 0.7, h * 0.15, Math.max(w, h) * 0.35, "rgba(245,185,66,0.045)"],
       ];
       for (const [nx, ny, nr, color] of nebulas) {
-        const g = ctx!.createRadialGradient(nx, ny, 0, nx, ny, nr);
-        g.addColorStop(0, color);
-        g.addColorStop(1, "rgba(0,0,0,0)");
-        ctx!.fillStyle = g;
+        const key = `${nx.toFixed(1)}:${ny.toFixed(1)}:${nr.toFixed(1)}:${color}`;
+        let gradient = nebulaCache.get(key);
+        if (!gradient) {
+          gradient = ctx!.createRadialGradient(nx, ny, 0, nx, ny, nr);
+          gradient.addColorStop(0, color);
+          gradient.addColorStop(1, "rgba(0,0,0,0)");
+          nebulaCache.set(key, gradient);
+        }
+        ctx!.fillStyle = gradient;
         ctx!.fillRect(0, 0, w, h);
       }
 

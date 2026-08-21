@@ -519,6 +519,8 @@ export default function SolarCanvas3D({
       }
 
       // 标签位置不需要与画面每一帧同步；低功耗设备进一步降低更新频率。
+      // 检测设备性能（简单判断：移动设备或低帧率设备）
+      const isLowPowerDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (window.devicePixelRatio && window.devicePixelRatio < 1.5);
       const labelUpdateInterval = isLowPowerDevice ? 3 : 2;
       if (frameCount % labelUpdateInterval === 0) {
         updateLabels(camera, renderer.domElement);

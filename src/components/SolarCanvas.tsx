@@ -57,6 +57,32 @@ const PRECOMPUTED_ORBITS = PLANETS.map((pl) => ({
   displayR: displayRadius(pl.diameterKm),
 }));
 
+// 缓存行星颜色配置，避免每帧重新计算
+const PLANET_COLOR_CONFIGS = PLANETS.map((pl) => ({
+  color: pl.color,
+  colorLight: pl.colorLight,
+  colorDark: pl.colorDark,
+}));
+
+// 缓存渐变对象，避免每帧重复创建
+const gradientCache = new Map<string, CanvasGradient>();
+
+function getCachedGradient(
+  key: string,
+  ctx: CanvasRenderingContext2D,
+  factory: () => CanvasGradient
+): CanvasGradient {
+  if (!gradientCache.has(key)) {
+    gradientCache.set(key, factory());
+  }
+  return gradientCache.get(key)!;
+}
+
+// 清除渐变缓存（在主题切换等场景下调用）
+export function clearGradientCache() {
+  gradientCache.clear();
+}
+
 /** 轨道半径归一化（非线性压缩，兼顾内行星间距与外行星可达性） */
 function orbitT(au: number) {
   const lo = Math.pow(0.39, 0.45);
@@ -151,14 +177,18 @@ export default function SolarCanvas({
     ro.observe(wrap);
 
     /* ---------- 命中检测 ---------- */
+    // 使用平方距离避免开方运算，提高性能
     function pick(px: number, py: number): string | null {
       let best: string | null = null;
-      let bestD = Infinity;
+      let bestD2 = Infinity;
       simRef.current.positions.forEach((p, id) => {
-        const d = Math.hypot(px - p.x, py - p.y);
-        const hit = Math.max(14, p.r + 9);
-        if (d < hit && d < bestD) {
-          bestD = d;
+        const dx = px - p.x;
+        const dy = py - p.y;
+        const d2 = dx * dx + dy * dy;
+        const hitR = Math.max(14, p.r + 9);
+        const hitR2 = hitR * hitR;
+        if (d2 < hitR2 && d2 < bestD2) {
+          bestD2 = d2;
           best = id;
         }
       });
@@ -218,30 +248,41 @@ export default function SolarCanvas({
       ctx!.closePath();
     }
 
+    // 缓存背景渐变，避免每帧重复创建
+    let bgGradient: CanvasGradient | null = null;
+    const nebulaCache = new Map<string, CanvasGradient>();
+
     function draw(now: number, dt: number) {
       const p = propsRef.current;
       const sim = simRef.current;
       if (p.playing) sim.days += dt * BASE_DAYS_PER_SEC * p.speed;
       const t = now / 1000;
 
-      /* 背景 */
-      const bg = ctx!.createLinearGradient(0, 0, 0, h);
-      bg.addColorStop(0, "#04060d");
-      bg.addColorStop(0.5, "#081020");
-      bg.addColorStop(1, "#05070f");
-      ctx!.fillStyle = bg;
+      /* 背景 - 使用缓存渐变 */
+      if (!bgGradient) {
+        bgGradient = ctx!.createLinearGradient(0, 0, 0, h);
+        bgGradient.addColorStop(0, "#04060d");
+        bgGradient.addColorStop(0.5, "#081020");
+        bgGradient.addColorStop(1, "#05070f");
+      }
+      ctx!.fillStyle = bgGradient;
       ctx!.fillRect(0, 0, w, h);
 
-      /* 星际尘埃（极淡的多色辉光） */
+      /* 星际尘埃（极淡的多色辉光）- 使用缓存 */
       const nebulas: Array<[number, number, number, string]> = [
         [w * 0.18, h * 0.22, Math.max(w, h) * 0.5, "rgba(45,180,190,0.05)"],
         [w * 0.85, h * 0.78, Math.max(w, h) * 0.45, "rgba(90,120,235,0.05)"],
         [w * 0.7, h * 0.15, Math.max(w, h) * 0.35, "rgba(245,185,66,0.045)"],
       ];
       for (const [nx, ny, nr, color] of nebulas) {
-        const g = ctx!.createRadialGradient(nx, ny, 0, nx, ny, nr);
-        g.addColorStop(0, color);
-        g.addColorStop(1, "rgba(0,0,0,0)");
+        const cacheKey = `${nx.toFixed(0)},${ny.toFixed(0)},${nr.toFixed(0)},${color}`;
+        let g = nebulaCache.get(cacheKey);
+        if (!g) {
+          g = ctx!.createRadialGradient(nx, ny, 0, nx, ny, nr);
+          g.addColorStop(0, color);
+          g.addColorStop(1, "rgba(0,0,0,0)");
+          nebulaCache.set(cacheKey, g);
+        }
         ctx!.fillStyle = g;
         ctx!.fillRect(0, 0, w, h);
       }

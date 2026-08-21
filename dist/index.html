@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#05080f" />
+    <meta
+      name="description"
+      content="交互式太阳系教学演示：八大行星轨道运动模拟、天体档案、公转周期与速度调节，支持安装到安卓手机桌面离线使用。"
+    />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icons/app-icon.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="/icons/app-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <title>太阳系观测站 · 交互式轨道演示</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <script type="module" crossorigin src="/assets/index-ChUMjg74.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-B260rYNl.css">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      // 注册 Service Worker，实现离线缓存与 PWA 安装
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("/sw.js").catch(function () {});
+        });
+      }
+    </script>
+  </body>
+</html>
